@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.env.local
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.pyc
+__pycache__/
+
+# Local Supabase / browser artifacts
+.supabase/
+supabase/.branches/
+playwright-report/
+test-results/
+

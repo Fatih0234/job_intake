@@ -1,0 +1,65 @@
+target_cities:
+  - Oldenburg
+  - Bremen
+  - Hamburg
+  - Hanover
+  - Munich
+  - Stuttgart
+  - Berlin
+  - Frankfurt
+  - Dusseldorf
+  - Nuremberg
+  - Cologne
+  - Leipzig
+
+search_definitions:
+  - name: berlin_data_engineering_student
+    platform: linkedin
+    city: Berlin
+    role_family: data_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Data Engineering
+      - working student data engineer
+      - internship data engineering
+
+  - name: hamburg_analytics_engineering_student
+    platform: linkedin
+    city: Hamburg
+    role_family: analytics_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Analytics Engineer
+      - analytics engineering internship
+      - working student dbt analytics
+
+  - name: munich_analytics_bi_student
+    platform: linkedin
+    city: Munich
+    role_family: analytics_bi
+    enabled: true
+    keywords:
+      - Werkstudent BI Analyst
+      - business intelligence internship
+      - working student data analyst
+
+  - name: frankfurt_ml_ai_engineering_student
+    platform: linkedin
+    city: Frankfurt
+    role_family: ml_ai_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Machine Learning Engineer
+      - AI engineering internship
+      - working student machine learning
+
+  - name: cologne_data_student_general
+    platform: linkedin
+    city: Cologne
+    role_family: data_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Data
+      - student assistant data engineering
+      - Praktikum Data Platform
+

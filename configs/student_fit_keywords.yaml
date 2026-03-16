@@ -1,0 +1,25 @@
+positive_terms:
+  - Werkstudent
+  - working student
+  - Praktikum
+  - internship
+  - student assistant
+  - studentische Hilfskraft
+  - working student data
+  - intern data
+
+supporting_terms:
+  - Teilzeit
+  - part-time
+  - thesis
+  - master student
+  - university
+
+negative_terms:
+  - senior
+  - lead
+  - principal
+  - staff engineer
+  - director
+  - full-time permanent
+

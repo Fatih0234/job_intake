@@ -1,0 +1,36 @@
+role_families:
+  data_engineering:
+    keywords:
+      - data engineer
+      - data platform
+      - etl
+      - elt
+      - airflow
+      - spark
+
+  analytics_engineering:
+    keywords:
+      - analytics engineer
+      - dbt
+      - semantic layer
+      - transformation
+      - modeling
+
+  analytics_bi:
+    keywords:
+      - business intelligence
+      - bi analyst
+      - analytics analyst
+      - tableau
+      - power bi
+      - looker
+
+  ml_ai_engineering:
+    keywords:
+      - machine learning engineer
+      - ml engineer
+      - ai engineer
+      - mlops
+      - llm engineer
+      - applied ai
+
