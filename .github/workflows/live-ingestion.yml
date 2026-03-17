@@ -1,0 +1,55 @@
+name: Live Ingestion
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1-5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-ingestion
+  cancel-in-progress: false
+
+jobs:
+  live-ingestion:
+    name: Run live discovery and details
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_ENV: ci
+      LOG_LEVEL: INFO
+      SUPABASE_PROJECT_REF: aashdnhoiqqdhpdedaab
+      SUPABASE_URL: https://aashdnhoiqqdhpdedaab.supabase.co
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Validate required runtime configuration
+        run: |
+          if [ -z "${SUPABASE_DB_URL}" ]; then
+            echo "GitHub secret SUPABASE_DB_URL is required."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: uv sync --group dev --frozen
+
+      - name: Run live discovery
+        run: uv run python scripts/run_live_discovery.py
+
+      - name: Run live details
+        run: uv run python scripts/run_live_details.py --limit-discoveries 100
