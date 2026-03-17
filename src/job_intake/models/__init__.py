@@ -13,6 +13,7 @@ from job_intake.models.core import (
     JobDiscovery,
     SearchDefinition,
 )
+from job_intake.models.storage import NotionSyncState, PipelineRun
 from job_intake.search_definitions import ExecutableSearch
 
 __all__ = [
@@ -21,7 +22,9 @@ __all__ = [
     "JobClassification",
     "JobDiscovery",
     "LoadedConfigs",
+    "NotionSyncState",
     "Platform",
+    "PipelineRun",
     "RoleFamily",
     "RoleFamilyKeywordRules",
     "SearchDefinition",

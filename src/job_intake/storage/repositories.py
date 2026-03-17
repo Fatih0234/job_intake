@@ -2,17 +2,32 @@
 
 from __future__ import annotations
 
-from typing import Any
+from datetime import datetime
+from typing import Any, Protocol
 from uuid import UUID
 
-from psycopg import Connection
 from psycopg.types.json import Jsonb
 
-from job_intake.models import CanonicalJob, JobClassification, SearchDefinition
+from job_intake.models import (
+    CanonicalJob,
+    JobClassification,
+    JobDiscovery,
+    PipelineRun,
+    SearchDefinition,
+)
+
+
+def _read_uuid(row: dict[str, Any] | None) -> UUID:
+    assert row is not None
+    return UUID(str(row["id"]))
+
+
+class SQLExecutor(Protocol):
+    def execute(self, sql: str, params: dict[str, Any]) -> Any: ...
 
 
 class JobIntakeRepository:
-    def __init__(self, connection: Connection[Any]) -> None:
+    def __init__(self, connection: SQLExecutor) -> None:
         self.connection = connection
 
     def upsert_search_definition(self, definition: SearchDefinition) -> UUID:
@@ -58,11 +73,123 @@ class JobIntakeRepository:
                 "keywords": Jsonb(definition.keywords),
                 "query_text": definition.query_text,
                 "is_enabled": definition.enabled,
-                "config_payload": Jsonb(definition.metadata),
+                "config_payload": Jsonb(
+                    {
+                        "filters": definition.filters,
+                        **definition.metadata,
+                    }
+                ),
             },
         ).fetchone()
-        assert row is not None
-        return UUID(str(row["id"]))
+        return _read_uuid(row)
+
+    def insert_pipeline_run(self, pipeline_run: PipelineRun) -> UUID:
+        row = self.connection.execute(
+            """
+            insert into pipeline_runs (
+                stage,
+                status,
+                started_at,
+                finished_at,
+                counters,
+                summary
+            )
+            values (
+                %(stage)s,
+                %(status)s,
+                %(started_at)s,
+                %(finished_at)s,
+                %(counters)s,
+                %(summary)s
+            )
+            returning id
+            """,
+            {
+                "stage": pipeline_run.stage,
+                "status": pipeline_run.status,
+                "started_at": pipeline_run.started_at,
+                "finished_at": pipeline_run.finished_at,
+                "counters": Jsonb(pipeline_run.counters),
+                "summary": Jsonb(pipeline_run.summary),
+            },
+        ).fetchone()
+        return _read_uuid(row)
+
+    def update_pipeline_run(
+        self,
+        *,
+        pipeline_run_id: UUID,
+        status: str,
+        finished_at: datetime | None = None,
+        counters: dict[str, int] | None = None,
+        summary: dict[str, Any] | None = None,
+    ) -> None:
+        self.connection.execute(
+            """
+            update pipeline_runs
+            set
+                status = %(status)s,
+                finished_at = %(finished_at)s,
+                counters = coalesce(%(counters)s, counters),
+                summary = coalesce(%(summary)s, summary),
+                updated_at = timezone('utc', now())
+            where id = %(pipeline_run_id)s
+            """,
+            {
+                "pipeline_run_id": pipeline_run_id,
+                "status": status,
+                "finished_at": finished_at,
+                "counters": Jsonb(counters) if counters is not None else None,
+                "summary": Jsonb(summary) if summary is not None else None,
+            },
+        )
+
+    def insert_job_discovery(
+        self,
+        discovery: JobDiscovery,
+        *,
+        pipeline_run_id: UUID | None = None,
+        job_id: UUID | None = None,
+    ) -> UUID:
+        row = self.connection.execute(
+            """
+            insert into job_discoveries (
+                search_definition_id,
+                pipeline_run_id,
+                job_id,
+                platform,
+                external_job_id,
+                discovery_url,
+                rank_position,
+                discovered_at,
+                raw_payload
+            )
+            values (
+                %(search_definition_id)s,
+                %(pipeline_run_id)s,
+                %(job_id)s,
+                %(platform)s,
+                %(external_job_id)s,
+                %(discovery_url)s,
+                %(rank_position)s,
+                %(discovered_at)s,
+                %(raw_payload)s
+            )
+            returning id
+            """,
+            {
+                "search_definition_id": discovery.search_definition_id,
+                "pipeline_run_id": pipeline_run_id,
+                "job_id": job_id,
+                "platform": discovery.platform,
+                "external_job_id": discovery.external_job_id,
+                "discovery_url": discovery.discovery_url,
+                "rank_position": discovery.rank_position,
+                "discovered_at": discovery.discovered_at,
+                "raw_payload": Jsonb(discovery.raw_payload),
+            },
+        ).fetchone()
+        return _read_uuid(row)
 
     def upsert_job(self, job: CanonicalJob) -> UUID:
         row = self.connection.execute(
@@ -152,8 +279,7 @@ class JobIntakeRepository:
                 "metadata": Jsonb(job.metadata),
             },
         ).fetchone()
-        assert row is not None
-        return UUID(str(row["id"]))
+        return _read_uuid(row)
 
     def upsert_job_classification(self, job_id: UUID, classification: JobClassification) -> UUID:
         row = self.connection.execute(
@@ -197,8 +323,7 @@ class JobIntakeRepository:
                 "signals": Jsonb(classification.signals),
             },
         ).fetchone()
-        assert row is not None
-        return UUID(str(row["id"]))
+        return _read_uuid(row)
 
     def upsert_notion_sync_state(
         self,
@@ -248,6 +373,4 @@ class JobIntakeRepository:
                 "payload_checksum": payload_checksum,
             },
         ).fetchone()
-        assert row is not None
-        return UUID(str(row["id"]))
-
+        return _read_uuid(row)
