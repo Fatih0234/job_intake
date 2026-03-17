@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from job_intake.notion.client import NotionDatabaseRef, NotionPageRef, NotionWorkspaceClient
+from job_intake.notion.client import NotionBootstrapClient, NotionDatabaseRef, NotionPageRef
 from job_intake.notion.schema import (
     DEFAULT_DATABASE_NAME,
     DEFAULT_ROOT_PAGE_NAME,
@@ -23,7 +23,7 @@ class NotionWorkspaceState:
 
 
 def ensure_shortlist_workspace(
-    client: NotionWorkspaceClient,
+    client: NotionBootstrapClient,
     settings: Settings | None = None,
 ) -> NotionWorkspaceState:
     active_settings = settings or get_settings()
@@ -44,7 +44,7 @@ def ensure_shortlist_workspace(
 
 
 def _resolve_root_page(
-    client: NotionWorkspaceClient,
+    client: NotionBootstrapClient,
     settings: Settings,
 ) -> tuple[NotionPageRef, bool]:
     if settings.notion.root_page_id:
@@ -75,7 +75,7 @@ def _resolve_root_page(
 
 
 def _resolve_database(
-    client: NotionWorkspaceClient,
+    client: NotionBootstrapClient,
     settings: Settings,
     root_page_id: str,
 ) -> tuple[NotionDatabaseRef, bool]:
