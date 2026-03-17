@@ -13,9 +13,11 @@ from job_intake.models.core import (
     JobDiscovery,
     SearchDefinition,
 )
+from job_intake.search_definitions import ExecutableSearch
 
 __all__ = [
     "CanonicalJob",
+    "ExecutableSearch",
     "JobClassification",
     "JobDiscovery",
     "LoadedConfigs",

@@ -18,5 +18,7 @@ def test_smoke_check_runs_without_db_credentials() -> None:
 
     assert result["settings_loaded"] is True
     assert result["search_definition_count"] == 5
+    assert result["executable_search_count"] == 15
+    assert result["sample_search_url"].startswith("https://www.linkedin.com/jobs/search/?")
     assert result["sample_external_key"] == "linkedin:1234567890"
     assert result["sample_fallback_key"].startswith("linkedin:url:")

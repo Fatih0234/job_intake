@@ -22,6 +22,7 @@ class SearchDefinition(BaseModel):
     city: str
     role_family: RoleFamily
     keywords: list[str] = Field(default_factory=list)
+    filters: dict[str, str] = Field(default_factory=dict)
     enabled: bool = True
     query_text: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -31,6 +32,11 @@ class SearchDefinition(BaseModel):
         self.name = self.name.strip()
         self.city = self.city.strip()
         self.keywords = [keyword.strip() for keyword in self.keywords if keyword.strip()]
+        self.filters = {
+            key.strip(): value.strip()
+            for key, value in self.filters.items()
+            if key.strip() and value.strip()
+        }
         return self
 
 
