@@ -29,6 +29,12 @@ class NotionSyncResult:
     skipped: int = 0
 
 
+@dataclass(slots=True)
+class NotionSyncPageResult:
+    action: str
+    page_id: str | None = None
+
+
 class NotionSyncService:
     """Idempotent downstream sync for shortlisted jobs.
 
@@ -49,37 +55,43 @@ class NotionSyncService:
         result = NotionSyncResult()
 
         for candidate in jobs:
-            if not self._is_sync_candidate(candidate.classification):
-                result.skipped += 1
-                continue
-
-            desired_properties = build_notion_job_properties(
-                candidate.job,
-                candidate.classification,
-            )
-            existing_page = self.client.find_page_by_canonical_job_key(
-                database_id=self.database_id,
-                canonical_job_key=candidate.job.canonical_job_key,
-            )
-            if existing_page is None:
-                self.client.create_database_page(
-                    database_id=self.database_id,
-                    properties=desired_properties,
-                )
+            page_result = self.sync_candidate(candidate)
+            if page_result.action == "created":
                 result.created += 1
-                continue
-
-            if self._managed_properties_match(existing_page.properties, desired_properties):
+            elif page_result.action == "updated":
+                result.updated += 1
+            else:
                 result.skipped += 1
-                continue
-
-            self.client.update_database_page(
-                page_id=existing_page.id,
-                properties=desired_properties,
-            )
-            result.updated += 1
 
         return result
+
+    def sync_candidate(self, candidate: NotionSyncCandidate) -> NotionSyncPageResult:
+        if not self._is_sync_candidate(candidate.classification):
+            return NotionSyncPageResult(action="skipped")
+
+        desired_properties = build_notion_job_properties(
+            candidate.job,
+            candidate.classification,
+        )
+        existing_page = self.client.find_page_by_canonical_job_key(
+            database_id=self.database_id,
+            canonical_job_key=candidate.job.canonical_job_key,
+        )
+        if existing_page is None:
+            created_page = self.client.create_database_page(
+                database_id=self.database_id,
+                properties=desired_properties,
+            )
+            return NotionSyncPageResult(action="created", page_id=created_page.id)
+
+        if self._managed_properties_match(existing_page.properties, desired_properties):
+            return NotionSyncPageResult(action="skipped", page_id=existing_page.id)
+
+        updated_page = self.client.update_database_page(
+            page_id=existing_page.id,
+            properties=desired_properties,
+        )
+        return NotionSyncPageResult(action="updated", page_id=updated_page.id)
 
     def _is_sync_candidate(self, classification: JobClassification) -> bool:
         return (

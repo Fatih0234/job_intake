@@ -107,6 +107,7 @@ class NotionFallbackClient:
 class DirectNotionWorkspaceClient:
     def __init__(self, client: Client) -> None:
         self.client = client
+        self._data_source_ids_by_database_id: dict[str, str] = {}
 
     def find_page_by_title(
         self,
@@ -223,10 +224,11 @@ class DirectNotionWorkspaceClient:
         database_id: str,
         canonical_job_key: str,
     ) -> NotionPageRecord | None:
+        data_source_id = self._resolve_data_source_id(database_id)
         response = cast(
             dict[str, Any],
-            cast(Any, self.client.databases).query(
-                database_id=database_id,
+            cast(Any, self.client.data_sources).query(
+                data_source_id=data_source_id,
                 filter={
                     "property": "Canonical Job Key",
                     "rich_text": {"equals": canonical_job_key},
@@ -286,6 +288,23 @@ class DirectNotionWorkspaceClient:
                 for property_name, property_payload in response.get("properties", {}).items()
             },
         )
+
+    def _resolve_data_source_id(self, database_id: str) -> str:
+        cached_id = self._data_source_ids_by_database_id.get(database_id)
+        if cached_id:
+            return cached_id
+
+        response = cast(
+            dict[str, Any],
+            self.client.databases.retrieve(database_id=database_id),
+        )
+        data_sources = cast(list[dict[str, Any]], response.get("data_sources", []))
+        if not data_sources:
+            raise RuntimeError(f"Database {database_id} does not expose any data sources.")
+
+        data_source_id = str(data_sources[0]["id"])
+        self._data_source_ids_by_database_id[database_id] = data_source_id
+        return data_source_id
 
     def _build_property_payload(
         self,

@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   live-ingestion:
-    name: Run live discovery and details
+    name: Run live ingestion and shortlist sync
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -23,6 +23,8 @@ jobs:
       SUPABASE_PROJECT_REF: aashdnhoiqqdhpdedaab
       SUPABASE_URL: https://aashdnhoiqqdhpdedaab.supabase.co
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
 
     steps:
       - name: Check out repository
@@ -44,6 +46,14 @@ jobs:
             echo "GitHub secret SUPABASE_DB_URL is required."
             exit 1
           fi
+          if [ -z "${NOTION_API_TOKEN}" ]; then
+            echo "GitHub secret NOTION_API_TOKEN is required."
+            exit 1
+          fi
+          if [ -z "${NOTION_DATABASE_ID}" ]; then
+            echo "GitHub secret NOTION_DATABASE_ID is required."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: uv sync --group dev --frozen
@@ -53,3 +63,9 @@ jobs:
 
       - name: Run live details
         run: uv run python scripts/run_live_details.py --limit-discoveries 100
+
+      - name: Run live classification
+        run: uv run python scripts/run_live_classification.py --limit-jobs 200
+
+      - name: Run Notion shortlist sync
+        run: uv run python scripts/run_notion_sync.py --limit-jobs 25

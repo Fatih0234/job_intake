@@ -12,9 +12,11 @@ from job_intake.models import (
     CanonicalJob,
     JobClassification,
     JobDiscovery,
+    NotionSyncState,
     PipelineRun,
     SearchDefinition,
 )
+from job_intake.models.storage import ClassifiedJobRecord
 
 
 def _read_uuid(row: dict[str, Any] | None) -> UUID:
@@ -247,6 +249,150 @@ class JobIntakeRepository:
                 "job_id": job_id,
             },
         )
+
+    def list_latest_unclassified_jobs(self, *, limit: int) -> list[CanonicalJob]:
+        rows = self.connection.execute(
+            """
+            select
+                j.id,
+                j.canonical_job_key,
+                j.platform,
+                j.external_job_id,
+                j.source_job_url,
+                j.normalized_job_url,
+                j.title,
+                j.company,
+                j.city,
+                j.country,
+                j.location_raw,
+                j.description_text,
+                j.employment_type,
+                j.seniority,
+                j.posted_text,
+                j.posted_at,
+                j.first_seen_at,
+                j.last_seen_at,
+                j.source_search_name,
+                j.metadata
+            from jobs j
+            left join job_classifications jc on jc.job_id = j.id
+            where jc.job_id is null
+            order by j.last_seen_at desc, j.created_at desc
+            limit %(limit)s
+            """,
+            {"limit": limit},
+        ).fetchall()
+        return [CanonicalJob.model_validate(row) for row in rows]
+
+    def list_shortlisted_jobs_for_notion_sync(self, *, limit: int) -> list[ClassifiedJobRecord]:
+        rows = self.connection.execute(
+            """
+            select
+                j.id as job_id,
+                j.canonical_job_key,
+                j.platform,
+                j.external_job_id,
+                j.source_job_url,
+                j.normalized_job_url,
+                j.title,
+                j.company,
+                j.city,
+                j.country,
+                j.location_raw,
+                j.description_text,
+                j.employment_type,
+                j.seniority,
+                j.posted_text,
+                j.posted_at,
+                j.first_seen_at,
+                j.last_seen_at,
+                j.source_search_name,
+                j.metadata,
+                jc.id as classification_id,
+                jc.student_fit,
+                jc.role_family,
+                jc.shortlist_decision,
+                jc.shortlist_reason,
+                jc.rule_version,
+                jc.signals,
+                nss.id as notion_sync_state_id,
+                nss.notion_page_id,
+                nss.sync_status,
+                nss.last_attempted_at,
+                nss.last_synced_at,
+                nss.last_error,
+                nss.payload_checksum
+            from jobs j
+            join job_classifications jc on jc.job_id = j.id
+            left join notion_sync_state nss on nss.job_id = j.id
+            where
+                jc.shortlist_decision = true
+                and jc.student_fit = 'target_student_job'
+            order by j.last_seen_at desc, j.created_at desc
+            limit %(limit)s
+            """,
+            {"limit": limit},
+        ).fetchall()
+        records: list[ClassifiedJobRecord] = []
+        for row in rows:
+            job = CanonicalJob.model_validate(
+                {
+                    "id": row["job_id"],
+                    "canonical_job_key": row["canonical_job_key"],
+                    "platform": row["platform"],
+                    "external_job_id": row["external_job_id"],
+                    "source_job_url": row["source_job_url"],
+                    "normalized_job_url": row["normalized_job_url"],
+                    "title": row["title"],
+                    "company": row["company"],
+                    "city": row["city"],
+                    "country": row["country"],
+                    "location_raw": row["location_raw"],
+                    "description_text": row["description_text"],
+                    "employment_type": row["employment_type"],
+                    "seniority": row["seniority"],
+                    "posted_text": row["posted_text"],
+                    "posted_at": row["posted_at"],
+                    "first_seen_at": row["first_seen_at"],
+                    "last_seen_at": row["last_seen_at"],
+                    "source_search_name": row["source_search_name"],
+                    "metadata": row["metadata"],
+                }
+            )
+            classification = JobClassification.model_validate(
+                {
+                    "id": row["classification_id"],
+                    "job_id": row["job_id"],
+                    "student_fit": row["student_fit"],
+                    "role_family": row["role_family"],
+                    "shortlist_decision": row["shortlist_decision"],
+                    "shortlist_reason": row["shortlist_reason"],
+                    "rule_version": row["rule_version"],
+                    "signals": row["signals"],
+                }
+            )
+            notion_sync_state = None
+            if row["notion_sync_state_id"] is not None:
+                notion_sync_state = NotionSyncState.model_validate(
+                    {
+                        "id": row["notion_sync_state_id"],
+                        "job_id": row["job_id"],
+                        "notion_page_id": row["notion_page_id"],
+                        "sync_status": row["sync_status"],
+                        "last_attempted_at": row["last_attempted_at"],
+                        "last_synced_at": row["last_synced_at"],
+                        "last_error": row["last_error"],
+                        "payload_checksum": row["payload_checksum"],
+                    }
+                )
+            records.append(
+                ClassifiedJobRecord(
+                    job=job,
+                    classification=classification,
+                    notion_sync_state=notion_sync_state,
+                )
+            )
+        return records
 
     def upsert_job(self, job: CanonicalJob) -> UUID:
         row = self.connection.execute(

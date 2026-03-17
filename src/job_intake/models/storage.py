@@ -1,4 +1,4 @@
-"""Storage-facing models for pipeline run and sync state records."""
+"""Storage-facing models for pipeline run, classification, and sync state records."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from job_intake.models.core import utc_now
+from job_intake.models.core import CanonicalJob, JobClassification, utc_now
 
 
 class PipelineRun(BaseModel):
@@ -30,3 +30,9 @@ class NotionSyncState(BaseModel):
     last_synced_at: datetime | None = None
     last_error: str | None = None
     payload_checksum: str | None = None
+
+
+class ClassifiedJobRecord(BaseModel):
+    job: CanonicalJob
+    classification: JobClassification
+    notion_sync_state: NotionSyncState | None = None
