@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from job_intake.canonical import build_canonical_job_key, normalize_linkedin_job_url
 from job_intake.config_loader import load_all_configs
-from job_intake.orchestration import JobIntakePipeline
+from job_intake.orchestration import JobIntakePipeline, build_fixture_pipeline_inputs
 from job_intake.search_definitions import build_executable_searches
 from job_intake.settings import Settings, get_settings
-
-
-def _read_fixture(settings: Settings, name: str) -> str:
-    fixtures_dir = settings.repo_root / "tests" / "fixtures" / "linkedin"
-    return (Path(fixtures_dir) / name).read_text(encoding="utf-8")
 
 
 def run_smoke_check(settings: Settings | None = None) -> dict[str, Any]:
@@ -22,24 +16,10 @@ def run_smoke_check(settings: Settings | None = None) -> dict[str, Any]:
     configs = load_all_configs(active_settings)
     executable_searches = build_executable_searches(configs.linkedin_searches)
     pipeline = JobIntakePipeline()
-    first_detail_url = (
-        "https://www.linkedin.com/jobs/view/4185654374/"
-        "?trk=public_jobs_jserp-result_search-card"
-    )
+    fixture_inputs = build_fixture_pipeline_inputs(active_settings)
     pipeline_summary = pipeline.run_fixture_slice(
-        discovery_html_by_search_name={
-            "berlin_data_engineering_student": _read_fixture(
-                active_settings,
-                "list_search_results.html",
-            ),
-        },
-        detail_html_by_url={
-            first_detail_url: _read_fixture(active_settings, "job_detail.html"),
-            "https://www.linkedin.com/jobs/view/4185654375/": _read_fixture(
-                active_settings,
-                "job_detail_missing_optional_fields.html",
-            ),
-        },
+        discovery_html_by_search_name=fixture_inputs.discovery_html_by_search_name,
+        detail_html_by_url=fixture_inputs.detail_html_by_url,
     )
 
     fallback_url = "https://www.linkedin.com/jobs/collections/recommended/?currentJobId=1234567890"

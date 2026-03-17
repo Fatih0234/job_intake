@@ -27,6 +27,10 @@ def main() -> int:
     print("Next steps")
     print("- Copy .env.local.example to .env.local if you have not done that yet.")
     print("- Fill SUPABASE_DB_URL before using storage helpers or running DB-backed checks.")
+    print(
+        "- Use a full Supabase pooler DSN in .env.local, "
+        "not db.aashdnhoiqqdhpdedaab.supabase.co.",
+    )
     print("- Run: supabase link --project-ref aashdnhoiqqdhpdedaab")
     print("- If the remote schema may have changed later, run: supabase db pull")
     print("- Prefer Notion MCP for workspace bootstrap; use NOTION_API_TOKEN only as fallback.")

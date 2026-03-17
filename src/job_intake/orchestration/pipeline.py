@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from datetime import UTC, datetime
+from typing import Any, Protocol
 from uuid import UUID
 
 from job_intake.adapters.linkedin import parse_job_detail_page, parse_search_results_page
@@ -29,9 +30,9 @@ class PipelineRepository(Protocol):
         *,
         pipeline_run_id: UUID,
         status: str,
-        finished_at: object | None = None,
+        finished_at: datetime | None = None,
         counters: dict[str, int] | None = None,
-        summary: dict[str, object] | None = None,
+        summary: dict[str, Any] | None = None,
     ) -> None: ...
     def upsert_search_definition(self, definition: SearchDefinition) -> UUID: ...
     def insert_job_discovery(
@@ -106,8 +107,9 @@ class JobIntakePipeline:
             for search in executable_searches:
                 self.logger.info("Processing search %s", search.definition_name)
                 definition = definitions_by_name[search.definition_name]
+                search_definition_id: UUID | None = None
                 if self.repository is not None:
-                    self.repository.upsert_search_definition(definition)
+                    search_definition_id = self.repository.upsert_search_definition(definition)
 
                 discovery_html = discovery_html_by_search_name.get(search.definition_name)
                 if discovery_html is None:
@@ -123,14 +125,15 @@ class JobIntakePipeline:
                 summary.discoveries += len(discoveries)
 
                 for discovery in discoveries:
-                    if self.repository is not None:
-                        self.repository.insert_job_discovery(
-                            discovery.to_job_discovery(),
-                            pipeline_run_id=pipeline_run_id,
-                        )
-
                     detail_html = detail_html_by_url.get(discovery.job_url)
                     if detail_html is None:
+                        if self.repository is not None:
+                            self.repository.insert_job_discovery(
+                                discovery.to_job_discovery(
+                                    search_definition_id=search_definition_id,
+                                ),
+                                pipeline_run_id=pipeline_run_id,
+                            )
                         summary.errors.append(
                             f"Missing detail HTML for job URL {discovery.job_url}.",
                         )
@@ -157,6 +160,13 @@ class JobIntakePipeline:
                     if self.repository is not None:
                         job_id = self.repository.upsert_job(job)
                         self.repository.upsert_job_classification(job_id, classification)
+                        self.repository.insert_job_discovery(
+                            discovery.to_job_discovery(
+                                search_definition_id=search_definition_id,
+                            ),
+                            pipeline_run_id=pipeline_run_id,
+                            job_id=job_id,
+                        )
 
             if self.sync_service is not None:
                 sync_result = self.sync_service.sync_shortlisted_jobs(sync_candidates)
@@ -185,4 +195,5 @@ class JobIntakePipeline:
                         "errors": len(summary.errors),
                     },
                     summary={"errors": summary.errors},
+                    finished_at=datetime.now(UTC),
                 )
