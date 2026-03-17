@@ -110,14 +110,99 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --frozen
 
+      - name: Report backlog before live run
+        run: |
+          uv run python - <<'PY'
+          from job_intake.storage import db_connection
+
+          queries = {
+              "unlinked_discoveries": """
+                  select count(*) as count
+                  from job_discoveries
+                  where job_id is null
+              """,
+              "unclassified_jobs": """
+                  select count(*) as count
+                  from jobs j
+                  left join job_classifications jc on jc.job_id = j.id
+                  where jc.job_id is null
+              """,
+              "shortlisted_target_jobs": """
+                  select count(*) as count
+                  from jobs j
+                  join job_classifications jc on jc.job_id = j.id
+                  where jc.shortlist_decision = true
+                    and jc.student_fit = 'target_student_job'
+              """,
+              "shortlisted_without_sync_state": """
+                  select count(*) as count
+                  from jobs j
+                  join job_classifications jc on jc.job_id = j.id
+                  left join notion_sync_state nss on nss.job_id = j.id
+                  where jc.shortlist_decision = true
+                    and jc.student_fit = 'target_student_job'
+                    and nss.job_id is null
+              """,
+          }
+
+          with db_connection() as conn:
+              print("Pipeline backlog before live run:")
+              for name, sql in queries.items():
+                  row = conn.execute(sql, {}).fetchone()
+                  print(f"  {name}: {row['count']}")
+          PY
+
       - name: Run live discovery
         run: uv run python scripts/run_live_discovery.py
 
       - name: Run live details
-        run: uv run python scripts/run_live_details.py --limit-discoveries 100
+        run: uv run python scripts/run_live_details.py --limit-discoveries 250
 
       - name: Run live classification
         run: uv run python scripts/run_live_classification.py --limit-jobs 200
 
       - name: Run Notion shortlist sync
-        run: uv run python scripts/run_notion_sync.py --limit-jobs 25
+        run: uv run python scripts/run_notion_sync.py --limit-jobs 100
+
+      - name: Report backlog after live run
+        if: ${{ always() }}
+        run: |
+          uv run python - <<'PY'
+          from job_intake.storage import db_connection
+
+          queries = {
+              "unlinked_discoveries": """
+                  select count(*) as count
+                  from job_discoveries
+                  where job_id is null
+              """,
+              "unclassified_jobs": """
+                  select count(*) as count
+                  from jobs j
+                  left join job_classifications jc on jc.job_id = j.id
+                  where jc.job_id is null
+              """,
+              "shortlisted_target_jobs": """
+                  select count(*) as count
+                  from jobs j
+                  join job_classifications jc on jc.job_id = j.id
+                  where jc.shortlist_decision = true
+                    and jc.student_fit = 'target_student_job'
+              """,
+              "shortlisted_without_sync_state": """
+                  select count(*) as count
+                  from jobs j
+                  join job_classifications jc on jc.job_id = j.id
+                  left join notion_sync_state nss on nss.job_id = j.id
+                  where jc.shortlist_decision = true
+                    and jc.student_fit = 'target_student_job'
+                    and nss.job_id is null
+              """,
+          }
+
+          with db_connection() as conn:
+              print("Pipeline backlog after live run:")
+              for name, sql in queries.items():
+                  row = conn.execute(sql, {}).fetchone()
+                  print(f"  {name}: {row['count']}")
+          PY

@@ -69,6 +69,97 @@ Fixture-backed pipeline slice:
 uv run python scripts/run_pipeline.py
 ```
 
+Fixture-backed pipeline slice through the real Supabase repository path:
+
+```bash
+uv run python scripts/run_pipeline_db.py
+```
+
+Inspect the latest DB-backed pipeline state:
+
+```bash
+uv run python scripts/inspect_pipeline_db.py
+```
+
+Inspect only recent pipeline runs:
+
+```bash
+uv run python scripts/inspect_pipeline_db.py --section pipeline_runs --limit 3
+```
+
+Preview historical discovery linkage backfill:
+
+```bash
+uv run python scripts/backfill_job_discoveries.py
+```
+
+Apply the backfill:
+
+```bash
+uv run python scripts/backfill_job_discoveries.py --apply
+```
+
+Run live LinkedIn public search discovery for the configured searches:
+
+```bash
+uv run python scripts/run_live_discovery.py
+```
+
+Limit the first live pass to a smaller number of executable searches:
+
+```bash
+uv run python scripts/run_live_discovery.py --limit-searches 3
+```
+
+Run live LinkedIn detail fetching for unlinked discoveries:
+
+```bash
+uv run python scripts/run_live_details.py
+```
+
+Keep the first detail-fetch pass small:
+
+```bash
+uv run python scripts/run_live_details.py --limit-discoveries 10
+```
+
+Classify canonical jobs that do not yet have persisted classifications:
+
+```bash
+uv run python scripts/run_live_classification.py --limit-jobs 100
+```
+
+Sync shortlisted target jobs into the Notion shortlist database:
+
+```bash
+uv run python scripts/run_notion_sync.py --limit-jobs 100
+```
+
+## GitHub Actions Scheduler
+
+The repo includes a single live-ingestion workflow at [`.github/workflows/live-ingestion.yml`](/Volumes/T7/job_intake/.github/workflows/live-ingestion.yml). It runs the same four-step live path used locally:
+
+```bash
+uv run python scripts/run_live_discovery.py
+uv run python scripts/run_live_details.py --limit-discoveries 250
+uv run python scripts/run_live_classification.py --limit-jobs 200
+uv run python scripts/run_notion_sync.py --limit-jobs 100
+```
+
+Required GitHub Actions secret:
+- `SUPABASE_DB_URL`
+- `NOTION_API_TOKEN`
+- `NOTION_DATABASE_ID`
+
+Manual trigger:
+- open the Actions tab in GitHub
+- select `Live Ingestion`
+- choose `Run workflow`
+
+Default schedule:
+- weekdays at `07:00` UTC
+- GitHub Actions cron uses UTC, not local time
+
 Tests:
 
 ```bash
@@ -103,6 +194,23 @@ load config
 ```
 
 The checked-in `scripts/run_pipeline.py` path is intentionally fixture-backed so the repo stays runnable without live LinkedIn, Supabase, or Notion access. The code paths for storage and Notion sync are real, but live credentials and clients still need to be supplied by the environment/runtime.
+
+For the DB-backed runner:
+- keep using fixture HTML only; it does not fetch live LinkedIn pages
+- `uv run python scripts/run_pipeline_db.py` persists through the real repository layer and does not invoke Notion sync
+- `uv run python scripts/inspect_pipeline_db.py` shows the latest rows from `pipeline_runs`, `search_definitions`, `jobs`, `job_classifications`, and `job_discoveries`
+- add `--section ...` to restrict the snapshot to specific tables and `--limit N` to reduce row counts
+- `uv run python scripts/backfill_job_discoveries.py` previews historical `job_discoveries` rows that can be linked by search-definition name and LinkedIn external job id
+- add `--apply` only when you want to persist the historical linkage updates
+- `uv run python scripts/run_live_discovery.py` fetches live LinkedIn public search result pages and stores discovery rows only
+- the live discovery slice does not fetch detail pages, classify jobs, shortlist, or sync to Notion by itself
+- `uv run python scripts/run_live_details.py` fetches live LinkedIn job detail pages for unlinked discovery rows and upserts canonical jobs
+- `uv run python scripts/run_live_classification.py` classifies canonical jobs that do not yet have `job_classifications` rows
+- `uv run python scripts/run_notion_sync.py` syncs shortlisted `target_student_job` rows into the configured Notion database and records sync state in Supabase
+- `SUPABASE_DB_URL` must be a full pooler DSN in `.env.local`
+- `NOTION_API_TOKEN` and `NOTION_DATABASE_ID` are required for runtime Notion sync
+- do not point runtime code at `supabase/.temp/pooler-url`; that file is only a local CLI clue if you need to reconstruct the pooler host
+- do not use the direct host `db.aashdnhoiqqdhpdedaab.supabase.co` on this machine
 
 ## Notion Notes
 
