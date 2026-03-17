@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol, cast
 
 from notion_client import Client
 
+from job_intake.notion.schema import DATABASE_PROPERTY_SPECS
 from job_intake.settings import Settings, get_settings
 
 
@@ -23,7 +25,13 @@ class NotionDatabaseRef:
     properties: dict[str, str]
 
 
-class NotionWorkspaceClient(Protocol):
+@dataclass(slots=True)
+class NotionPageRecord:
+    id: str
+    properties: dict[str, object | None]
+
+
+class NotionBootstrapClient(Protocol):
     def find_page_by_title(
         self,
         title: str,
@@ -50,6 +58,31 @@ class NotionWorkspaceClient(Protocol):
         properties: dict[str, str],
     ) -> NotionDatabaseRef: ...
     def get_database(self, database_id: str) -> NotionDatabaseRef: ...
+
+
+class NotionSyncClient(Protocol):
+    def find_page_by_canonical_job_key(
+        self,
+        *,
+        database_id: str,
+        canonical_job_key: str,
+    ) -> NotionPageRecord | None: ...
+    def create_database_page(
+        self,
+        *,
+        database_id: str,
+        properties: dict[str, object | None],
+    ) -> NotionPageRecord: ...
+    def update_database_page(
+        self,
+        *,
+        page_id: str,
+        properties: dict[str, object | None],
+    ) -> NotionPageRecord: ...
+
+
+class NotionWorkspaceClient(NotionBootstrapClient, NotionSyncClient, Protocol):
+    pass
 
 
 class NotionFallbackClient:
@@ -184,6 +217,57 @@ class DirectNotionWorkspaceClient:
             properties=self._extract_database_properties(response),
         )
 
+    def find_page_by_canonical_job_key(
+        self,
+        *,
+        database_id: str,
+        canonical_job_key: str,
+    ) -> NotionPageRecord | None:
+        response = cast(
+            dict[str, Any],
+            cast(Any, self.client.databases).query(
+                database_id=database_id,
+                filter={
+                    "property": "Canonical Job Key",
+                    "rich_text": {"equals": canonical_job_key},
+                },
+            ),
+        )
+        results = response.get("results", [])
+        if not results:
+            return None
+        return self._to_page_record(cast(dict[str, Any], results[0]))
+
+    def create_database_page(
+        self,
+        *,
+        database_id: str,
+        properties: dict[str, object | None],
+    ) -> NotionPageRecord:
+        response = cast(
+            dict[str, Any],
+            self.client.pages.create(
+                parent={"database_id": database_id},
+                properties=self._build_property_payload(properties),
+            ),
+        )
+        return self._to_page_record(response)
+
+    def update_database_page(
+        self,
+        *,
+        page_id: str,
+        properties: dict[str, object | None],
+    ) -> NotionPageRecord:
+        response = cast(
+            dict[str, Any],
+            self.client.pages.update(
+                page_id=page_id,
+                properties=self._build_property_payload(properties),
+            ),
+        )
+        return self._to_page_record(response)
+
     def _extract_title(self, response: dict[str, Any]) -> str:
         title_fragments = response.get("title", [])
         return "".join(fragment.get("plain_text", "") for fragment in title_fragments)
@@ -193,3 +277,74 @@ class DirectNotionWorkspaceClient:
             property_name: property_payload["type"]
             for property_name, property_payload in response.get("properties", {}).items()
         }
+
+    def _to_page_record(self, response: dict[str, Any]) -> NotionPageRecord:
+        return NotionPageRecord(
+            id=response["id"],
+            properties={
+                property_name: self._from_notion_property_value(property_payload)
+                for property_name, property_payload in response.get("properties", {}).items()
+            },
+        )
+
+    def _build_property_payload(
+        self,
+        properties: dict[str, object | None],
+    ) -> dict[str, dict[str, Any]]:
+        payload: dict[str, dict[str, Any]] = {}
+        for property_name, property_value in properties.items():
+            property_type = DATABASE_PROPERTY_SPECS[property_name].type
+            payload[property_name] = self._to_notion_property_value(property_type, property_value)
+        return payload
+
+    def _to_notion_property_value(
+        self,
+        property_type: str,
+        value: object | None,
+    ) -> dict[str, Any]:
+        if property_type == "title":
+            return {
+                "title": (
+                    []
+                    if value is None
+                    else [{"type": "text", "text": {"content": str(value)}}]
+                )
+            }
+        if property_type == "rich_text":
+            return {
+                "rich_text": (
+                    []
+                    if value is None
+                    else [{"type": "text", "text": {"content": str(value)}}]
+                )
+            }
+        if property_type == "url":
+            return {"url": None if value is None else str(value)}
+        if property_type in {"select", "status"}:
+            return {property_type: None if value is None else {"name": str(value)}}
+        if property_type == "date":
+            if value is None:
+                return {"date": None}
+            if isinstance(value, datetime):
+                return {"date": {"start": value.isoformat()}}
+            return {"date": {"start": str(value)}}
+        raise ValueError(f"Unsupported Notion property type {property_type!r}.")
+
+    def _from_notion_property_value(self, property_payload: dict[str, Any]) -> object | None:
+        property_type = property_payload["type"]
+        if property_type == "title":
+            return "".join(fragment.get("plain_text", "") for fragment in property_payload["title"])
+        if property_type == "rich_text":
+            return "".join(
+                fragment.get("plain_text", "")
+                for fragment in property_payload["rich_text"]
+            )
+        if property_type == "url":
+            return property_payload["url"]
+        if property_type in {"select", "status"}:
+            selected = property_payload[property_type]
+            return None if selected is None else selected.get("name")
+        if property_type == "date":
+            date_value = property_payload["date"]
+            return None if date_value is None else date_value.get("start")
+        return None
