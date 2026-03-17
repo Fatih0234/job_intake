@@ -6,7 +6,7 @@ import re
 from hashlib import sha256
 from urllib.parse import urlsplit, urlunsplit
 
-LINKEDIN_JOB_ID_RE = re.compile(r"/jobs/view/(?P<job_id>\d+)")
+LINKEDIN_JOB_ID_RE = re.compile(r"/jobs/view/(?:[^/?#]*-)?(?P<job_id>\d+)")
 
 
 def normalize_linkedin_job_url(job_url: str) -> str:

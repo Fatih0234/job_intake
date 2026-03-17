@@ -191,6 +191,63 @@ class JobIntakeRepository:
         ).fetchone()
         return _read_uuid(row)
 
+    def list_latest_unlinked_job_discoveries(self, *, limit: int) -> list[JobDiscovery]:
+        rows = self.connection.execute(
+            """
+            select
+                id,
+                search_definition_id,
+                platform,
+                external_job_id,
+                discovery_url,
+                rank_position,
+                discovered_at,
+                raw_payload
+            from (
+                select distinct on (coalesce(external_job_id, discovery_url))
+                    id,
+                    search_definition_id,
+                    platform,
+                    external_job_id,
+                    discovery_url,
+                    rank_position,
+                    discovered_at,
+                    raw_payload,
+                    created_at
+                from job_discoveries
+                where job_id is null
+                order by
+                    coalesce(external_job_id, discovery_url),
+                    discovered_at desc,
+                    created_at desc
+            ) latest_unlinked
+            order by discovered_at desc
+            limit %(limit)s
+            """,
+            {"limit": limit},
+        ).fetchall()
+        return [JobDiscovery.model_validate(row) for row in rows]
+
+    def update_job_discovery_job_link(
+        self,
+        *,
+        discovery_id: UUID,
+        job_id: UUID,
+    ) -> None:
+        self.connection.execute(
+            """
+            update job_discoveries
+            set
+                job_id = %(job_id)s,
+                updated_at = timezone('utc', now())
+            where id = %(discovery_id)s
+            """,
+            {
+                "discovery_id": discovery_id,
+                "job_id": job_id,
+            },
+        )
+
     def upsert_job(self, job: CanonicalJob) -> UUID:
         row = self.connection.execute(
             """
