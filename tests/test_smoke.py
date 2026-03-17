@@ -22,3 +22,6 @@ def test_smoke_check_runs_without_db_credentials() -> None:
     assert result["sample_search_url"].startswith("https://www.linkedin.com/jobs/search/?")
     assert result["sample_external_key"] == "linkedin:1234567890"
     assert result["sample_fallback_key"].startswith("linkedin:url:")
+    assert result["pipeline_summary"]["discoveries"] == 2
+    assert result["pipeline_summary"]["shortlisted"] == 2
+    assert result["pipeline_summary"]["errors"] == []

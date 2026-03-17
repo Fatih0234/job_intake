@@ -1,24 +1,25 @@
 # Student Job Intake
 
-Student Job Intake is a narrow, inspectable Python pipeline for discovering student-compatible LinkedIn jobs in selected German cities, storing canonical data in Supabase, and syncing only shortlisted jobs into Notion.
+Student Job Intake is a narrow Python pipeline for discovering student-compatible LinkedIn jobs in selected German cities, storing canonical data in Supabase, and syncing only shortlisted jobs into Notion.
 
-This repository currently contains the project foundation only:
-- Python 3.12 + `uv` package scaffold
-- typed settings and config loading
-- Supabase migration baseline
-- storage helpers and repository stubs
-- Notion integration placeholders
-- offline smoke check and starter tests
+The project now includes:
+- typed settings and validated YAML config loading
+- config-driven LinkedIn search definitions
+- fixture-tested LinkedIn discovery and detail parsers
+- canonical job normalization and stable dedupe keys
+- deterministic student-fit, role-family, and shortlist logic
+- repository helpers for canonical storage records
+- schema-aware Notion bootstrap and idempotent sync helpers
+- a fixture-backed pipeline entrypoint for local end-to-end verification
 
-The product framing lives in:
+The binding product constraints live in:
 - [`AGENTS.md`](/Volumes/T7/job_intake/AGENTS.md)
 - [`PRD_v1.md`](/Volumes/T7/job_intake/PRD_v1.md)
 - [`architecture.md`](/Volumes/T7/job_intake/architecture.md)
 
 ## Getting Started
 
-### 1. Install Python and uv
-Use Python 3.12+ and install `uv` if needed:
+### 1. Install Python and `uv`
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -26,19 +27,18 @@ uv python install 3.12
 ```
 
 ### 2. Create local environment variables
-Copy the example file and fill in the secrets you already have:
 
 ```bash
 cp .env.local.example .env.local
 ```
 
-Required later for real storage or sync work:
+Needed for live storage or direct Notion API fallback work:
 - `SUPABASE_DB_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `NOTION_API_TOKEN` only if using the direct API fallback instead of Notion MCP
+- `NOTION_API_TOKEN` only when not using an MCP-backed Notion client
 
-Optional bootstrap IDs you can fill once the Notion workspace exists:
+Optional IDs once the Notion workspace exists:
 - `NOTION_PARENT_PAGE_ID`
 - `NOTION_ROOT_PAGE_ID`
 - `NOTION_DATABASE_ID`
@@ -49,42 +49,30 @@ Optional bootstrap IDs you can fill once the Notion workspace exists:
 uv sync --group dev
 ```
 
-### 4. Run the smoke check
-The smoke path is offline-first and does not require live LinkedIn, Notion, or database access.
-
-```bash
-uv run python scripts/smoke_check.py
-```
-
-### 5. Run tests
-
-```bash
-uv run pytest
-```
-
-### 6. Link the fixed Supabase project
-This repo is pinned to a single Supabase project:
-- project ref: `aashdnhoiqqdhpdedaab`
-- project URL: `https://aashdnhoiqqdhpdedaab.supabase.co`
-
-When you are ready for CLI-backed schema work:
-
-```bash
-supabase link --project-ref aashdnhoiqqdhpdedaab
-```
-
-If the remote schema may have changed before you add later migrations, pull first:
-
-```bash
-supabase db pull
-```
-
 ## Local Commands
 
 Bootstrap and setup check:
 
 ```bash
 uv run python scripts/bootstrap_local.py
+```
+
+Offline smoke check:
+
+```bash
+uv run python scripts/smoke_check.py
+```
+
+Fixture-backed pipeline slice:
+
+```bash
+uv run python scripts/run_pipeline.py
+```
+
+Tests:
+
+```bash
+uv run pytest
 ```
 
 Lint:
@@ -96,26 +84,58 @@ uv run ruff check .
 Type-check:
 
 ```bash
-uv run mypy src tests
+uv run mypy src tests scripts
 ```
+
+## Current Runtime Shape
+
+The implemented local flow is:
+
+```text
+load config
+-> build executable LinkedIn searches
+-> parse discovery fixtures
+-> parse detail fixtures
+-> normalize canonical jobs
+-> classify student fit and role family
+-> decide shortlist eligibility
+-> optionally persist and sync through injected services
+```
+
+The checked-in `scripts/run_pipeline.py` path is intentionally fixture-backed so the repo stays runnable without live LinkedIn, Supabase, or Notion access. The code paths for storage and Notion sync are real, but live credentials and clients still need to be supplied by the environment/runtime.
+
+## Notion Notes
+
+- Supabase remains canonical.
+- Notion is only the downstream review workspace.
+- The bootstrap layer verifies the expected root page and database shape.
+- Sync only manages non-manual fields and preserves `Priority`, `Review Status`, `Application Status`, and `Notes`.
 
 ## Repository Layout
 
 ```text
 configs/                  YAML search and keyword rules
-scripts/                  local bootstrap and smoke entrypoints
+docs/                     runbook and implementation notes
+scripts/                  bootstrap, smoke, and local pipeline entrypoints
 src/job_intake/           package source
 supabase/migrations/      SQL migration baseline
-tests/                    offline unit and smoke tests
+tests/                    unit, parser, sync, and pipeline tests
 ```
 
-## Current Scope Boundary
+## Supabase Project Pin
 
-This foundation intentionally does not implement:
-- LinkedIn scraping logic
-- classification heuristics beyond config scaffolding
-- shortlist policy execution
-- live Notion bootstrap or sync behavior
+This repo is pinned to a single Supabase project:
+- project ref: `aashdnhoiqqdhpdedaab`
+- project URL: `https://aashdnhoiqqdhpdedaab.supabase.co`
 
-Those phases come next, on top of the interfaces defined here.
+When doing CLI-backed schema work:
 
+```bash
+supabase link --project-ref aashdnhoiqqdhpdedaab
+```
+
+If the remote schema may have changed before a new migration:
+
+```bash
+supabase db pull
+```
