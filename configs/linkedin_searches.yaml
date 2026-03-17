@@ -12,6 +12,9 @@ target_cities:
   - Cologne
   - Leipzig
 
+# Keywords are search-oriented LinkedIn phrases, not canonical job titles.
+# Bias toward German student wording first, then add a small number of adjacent
+# family-specific phrases that often appear in titles or descriptions.
 search_definitions:
   - name: berlin_data_engineering_student
     platform: linkedin
@@ -20,8 +23,11 @@ search_definitions:
     enabled: true
     keywords:
       - Werkstudent Data Engineering
+      - Werkstudent Data Engineer
+      - Praktikum Data Engineering
+      - Praktikum Data Platform
+      - Werkstudent ETL
       - working student data engineer
-      - internship data engineering
 
   - name: hamburg_analytics_engineering_student
     platform: linkedin
@@ -29,9 +35,12 @@ search_definitions:
     role_family: analytics_engineering
     enabled: true
     keywords:
+      - Werkstudent Analytics Engineering
       - Werkstudent Analytics Engineer
-      - analytics engineering internship
-      - working student dbt analytics
+      - Praktikum Analytics Engineering
+      - Werkstudent dbt
+      - Werkstudent BI Engineer
+      - working student analytics engineer
 
   - name: munich_analytics_bi_student
     platform: linkedin
@@ -39,8 +48,12 @@ search_definitions:
     role_family: analytics_bi
     enabled: true
     keywords:
+      - Werkstudent Business Intelligence
       - Werkstudent BI Analyst
-      - business intelligence internship
+      - Praktikum Business Intelligence
+      - Werkstudent Data Analyst
+      - Praktikum Datenanalyse
+      - Werkstudent Power BI
       - working student data analyst
 
   - name: frankfurt_ml_ai_engineering_student
@@ -49,8 +62,12 @@ search_definitions:
     role_family: ml_ai_engineering
     enabled: true
     keywords:
+      - Werkstudent Machine Learning
       - Werkstudent Machine Learning Engineer
-      - AI engineering internship
+      - Praktikum Machine Learning
+      - Werkstudent KI
+      - Praktikum KI
+      - Werkstudent AI Engineer
       - working student machine learning
 
   - name: cologne_data_student_general
@@ -59,7 +76,92 @@ search_definitions:
     role_family: data_engineering
     enabled: true
     keywords:
-      - Werkstudent Data
-      - student assistant data engineering
+      - Werkstudent Data Engineering
+      - Werkstudent Data Engineer
+      - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Werkstudent IT Data
 
+  - name: oldenburg_data_student_general
+    platform: linkedin
+    city: Oldenburg
+    role_family: data_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Data Engineering
+      - Werkstudent Data Engineer
+      - Praktikum Data Engineering
+      - Praktikum Data Platform
+      - Werkstudent IT Data
+
+  - name: bremen_data_student_general
+    platform: linkedin
+    city: Bremen
+    role_family: data_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Data Engineering
+      - Werkstudent Data Engineer
+      - Praktikum Data Engineering
+      - Praktikum Data Platform
+      - Werkstudent IT Data
+
+  - name: hanover_data_student_general
+    platform: linkedin
+    city: Hanover
+    role_family: data_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Data Engineering
+      - Werkstudent Data Engineer
+      - Praktikum Data Engineering
+      - Praktikum Data Platform
+      - Werkstudent IT Data
+
+  - name: stuttgart_data_student_general
+    platform: linkedin
+    city: Stuttgart
+    role_family: data_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Data Engineering
+      - Werkstudent Data Engineer
+      - Praktikum Data Engineering
+      - Praktikum Data Platform
+      - Werkstudent IT Data
+
+  - name: dusseldorf_data_student_general
+    platform: linkedin
+    city: Dusseldorf
+    role_family: data_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Data Engineering
+      - Werkstudent Data Engineer
+      - Praktikum Data Engineering
+      - Praktikum Data Platform
+      - Werkstudent IT Data
+
+  - name: nuremberg_data_student_general
+    platform: linkedin
+    city: Nuremberg
+    role_family: data_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Data Engineering
+      - Werkstudent Data Engineer
+      - Praktikum Data Engineering
+      - Praktikum Data Platform
+      - Werkstudent IT Data
+
+  - name: leipzig_data_student_general
+    platform: linkedin
+    city: Leipzig
+    role_family: data_engineering
+    enabled: true
+    keywords:
+      - Werkstudent Data Engineering
+      - Werkstudent Data Engineer
+      - Praktikum Data Engineering
+      - Praktikum Data Platform
+      - Werkstudent IT Data

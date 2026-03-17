@@ -1,0 +1,353 @@
+{
+  "version": 1,
+  "generated_on": "2026-03-16",
+  "generated_from": {
+    "source_profile": "profile.json",
+    "purpose": "Stable internal role taxonomy for evidence tagging, resume tailoring, and job-description matching.",
+    "design_notes": [
+      "Keep top-level families smaller and more stable than the search-oriented target titles in profile.json.",
+      "Use profile-based fit assessments to guide resume selection, not to limit applications.",
+      "Do not treat generated resumes as source-of-truth data."
+    ]
+  },
+  "role_families": [
+    {
+      "id": "analytics_bi",
+      "label": "Analytics / BI",
+      "category": "data",
+      "resume_priority": 1,
+      "fit_assessment": "strong",
+      "definition": "Roles centered on querying data, building dashboards and reports, tracking KPIs, identifying trends, and communicating business insights.",
+      "includes_profile_roles": [
+        "Data Analyst",
+        "BI Developer"
+      ],
+      "equivalent_titles": [
+        "Business Data Analyst",
+        "BI Analyst",
+        "Business Intelligence Analyst",
+        "Reporting Analyst",
+        "Product Analyst",
+        "Insights Analyst",
+        "Data Insights Analyst",
+        "Business Intelligence Developer",
+        "BI Engineer",
+        "Business Intelligence Engineer",
+        "Power BI Developer",
+        "Tableau Developer",
+        "BI / SQL Developer",
+        "ETL & BI Developer"
+      ],
+      "subroles": [
+        "business_intelligence",
+        "reporting_analytics",
+        "dashboarding",
+        "product_analytics",
+        "sql_analysis"
+      ],
+      "profile_alignment": {
+        "direct_experience": [
+          "Data Analyst internship at iComplai (2022-06 to 2022-10)"
+        ],
+        "supporting_certifications": [
+          "Data Analyst (DataCamp)",
+          "Data Analyst Associate (DataCamp)",
+          "Microsoft Certified: Power BI Data Analyst Associate",
+          "Associate SQL (DataCamp)"
+        ],
+        "supporting_skills": [
+          "SQL",
+          "Power BI",
+          "Tableau",
+          "Looker",
+          "Excel",
+          "Google Sheets",
+          "Metabase",
+          "Apache Superset",
+          "Grafana",
+          "Python"
+        ],
+        "supporting_education": [
+          "BSc Economics",
+          "MSc Data Science and Applied Economics"
+        ]
+      },
+      "selection_signals": [
+        "Job emphasizes SQL, dashboards, reporting, KPIs, stakeholder analysis, metrics, or BI tools.",
+        "Job expects communication of business insights to non-technical stakeholders.",
+        "Job asks for Power BI, Tableau, Looker, Excel, or dashboard maintenance.",
+        "Job values analytical thinking, trend detection, and business-facing recommendations."
+      ],
+      "deemphasize_when": [
+        "Role is primarily backend API engineering or product software development.",
+        "Role is centered on model training, ML experimentation, or GenAI solution delivery.",
+        "Role is heavily infrastructure/platform focused with little analytics or reporting ownership."
+      ],
+      "default_positioning": "Use this family when your internship, BI tooling, SQL, and analytics certifications are the clearest proof points. Emphasize reporting, dashboarding, analysis quality, and stakeholder value."
+    },
+    {
+      "id": "data_engineering",
+      "label": "Data Engineering",
+      "category": "data",
+      "resume_priority": 2,
+      "fit_assessment": "strong_target",
+      "definition": "Roles centered on data ingestion, transformation, orchestration, storage, warehousing, and reliable pipeline design.",
+      "includes_profile_roles": [
+        "Data Engineer"
+      ],
+      "equivalent_titles": [
+        "Data Platform Engineer",
+        "Cloud Data Engineer",
+        "Data Integration Engineer",
+        "ETL Engineer",
+        "Big Data Engineer"
+      ],
+      "subroles": [
+        "etl",
+        "orchestration",
+        "data_platform",
+        "batch_processing",
+        "warehouse_modeling"
+      ],
+      "profile_alignment": {
+        "direct_experience": [],
+        "supporting_profile_signals": [
+          "Default title in profile is Data Engineer",
+          "Short summary emphasizes pipelines, trustworthy data, and data systems"
+        ],
+        "supporting_skills": [
+          "Python",
+          "SQL",
+          "Spark",
+          "dbt",
+          "Airflow",
+          "Delta Lake",
+          "Databricks",
+          "BigQuery",
+          "Snowflake",
+          "PostgreSQL",
+          "MySQL",
+          "DuckDB",
+          "Kafka",
+          "Parquet",
+          "Docker",
+          "Kubernetes",
+          "Terraform",
+          "Azure",
+          "AWS",
+          "GCP"
+        ],
+        "supporting_education": [
+          "MSc Data Science and Applied Economics"
+        ]
+      },
+      "selection_signals": [
+        "Job emphasizes ETL/ELT, ingestion, orchestration, warehousing, data quality, or platform reliability.",
+        "Job asks for dbt, Airflow, Spark, Kafka, SQL, cloud data warehouses, or infrastructure-aware data work.",
+        "Job focuses on building or maintaining reusable data systems rather than only dashboards.",
+        "Job requires storage, transformation, and pipeline thinking across multiple tools or environments."
+      ],
+      "deemphasize_when": [
+        "Role is mostly analyst/reporting work with limited pipeline ownership.",
+        "Role is primarily research ML, model experimentation, or GenAI application building.",
+        "Role is frontend-heavy with little data systems responsibility."
+      ],
+      "default_positioning": "Use this family when data systems, pipelines, orchestration, and storage architecture are the center of the application. Emphasize engineering discipline, reliability, transformation workflows, and end-to-end data movement."
+    },
+    {
+      "id": "analytics_engineering",
+      "label": "Analytics Engineering",
+      "category": "data",
+      "resume_priority": 3,
+      "fit_assessment": "medium_target",
+      "definition": "Roles that sit between data engineering and analytics, with emphasis on data modeling, testing, semantic layers, documentation, and trustworthy analytics infrastructure.",
+      "includes_profile_roles": [
+        "Analytics Engineer"
+      ],
+      "equivalent_titles": [
+        "Data Analytics Engineer",
+        "BI Engineer",
+        "Business Intelligence Engineer",
+        "BI Developer",
+        "Business Intelligence Developer"
+      ],
+      "subroles": [
+        "dbt_modeling",
+        "semantic_layer",
+        "analytics_infrastructure",
+        "data_quality_testing",
+        "transformation_workflows"
+      ],
+      "profile_alignment": {
+        "direct_experience": [],
+        "supporting_skills": [
+          "SQL",
+          "dbt",
+          "Airflow",
+          "BigQuery",
+          "Snowflake",
+          "DuckDB",
+          "PostgreSQL",
+          "Metabase",
+          "Apache Superset",
+          "Grafana",
+          "Python"
+        ],
+        "supporting_education": [
+          "MSc Data Science and Applied Economics"
+        ],
+        "supporting_background": [
+          "Strong overlap between analytics tools and data tooling in the profile"
+        ]
+      },
+      "selection_signals": [
+        "Job mentions dbt, data modeling, testing, lineage, semantic layers, or reliable analytics delivery.",
+        "Role sits between data platform work and analytics/reporting consumers.",
+        "Job wants engineering discipline in analytics workflows, not just dashboard creation.",
+        "Job values documentation, model governance, and trusted transformation layers."
+      ],
+      "deemphasize_when": [
+        "Role is purely analyst/reporting with no modeling or transformation ownership.",
+        "Role is purely infrastructure/data platform with minimal analytics-facing modeling.",
+        "Role is mostly application software engineering or frontend work."
+      ],
+      "default_positioning": "Use this family when the role is clearly about modeling, transforming, testing, and serving analytics-ready data. Position yourself as someone who bridges data systems and business-facing analytics."
+    },
+    {
+      "id": "ml_ai_engineering",
+      "label": "ML / AI Engineering",
+      "category": "ai",
+      "resume_priority": 4,
+      "fit_assessment": "emerging_target",
+      "definition": "Roles focused on building, evaluating, deploying, and monitoring machine learning or AI solutions, including production pipelines and modern GenAI application delivery.",
+      "includes_profile_roles": [
+        "Machine Learning Engineer",
+        "AI Engineer"
+      ],
+      "equivalent_titles": [
+        "Applied ML Engineer",
+        "Applied Machine Learning Engineer",
+        "ML Platform Engineer",
+        "Machine Learning Developer",
+        "AI/ML Engineer",
+        "Applied AI Engineer",
+        "AI Platform Engineer",
+        "Generative AI Engineer",
+        "GenAI Engineer",
+        "LLM Engineer",
+        "AI Solutions Engineer"
+      ],
+      "subroles": [
+        "ml_engineering",
+        "ml_platform",
+        "genai_applications",
+        "llm_engineering",
+        "model_deployment"
+      ],
+      "profile_alignment": {
+        "direct_experience": [
+          "Research Assistant at University of Oldenburg (2024-11 to 2026-03)"
+        ],
+        "supporting_certifications": [
+          "PyTorch for Deep Learning",
+          "Deep Learning Specialization",
+          "Machine Learning Specialization"
+        ],
+        "supporting_skills": [
+          "Python",
+          "SQL",
+          "Spark",
+          "NumPy",
+          "Jupyter",
+          "Azure",
+          "AWS",
+          "GCP",
+          "REST APIs"
+        ],
+        "supporting_education": [
+          "MSc Data Science and Applied Economics"
+        ]
+      },
+      "selection_signals": [
+        "Job emphasizes model building, training, evaluation, deployment, MLOps, or AI solution delivery.",
+        "Job mentions ML pipelines, experimentation, monitoring, or productionization.",
+        "Job targets GenAI, LLM applications, or applied AI integration into products or workflows.",
+        "Job expects Python plus data/infra awareness around model or AI systems."
+      ],
+      "deemphasize_when": [
+        "Role is primarily classic BI/reporting or dashboard ownership.",
+        "Role is mostly generic backend engineering with no ML/AI product scope.",
+        "Role is data engineering without meaningful ML, model, or AI application responsibility."
+      ],
+      "default_positioning": "Use this family when the job explicitly asks for ML/AI delivery. Emphasize your recent deep learning and ML learning track, research context, and technical readiness, but avoid overstating production ML experience if the evidence is limited."
+    },
+    {
+      "id": "software_engineering",
+      "label": "Software Engineering",
+      "category": "software",
+      "resume_priority": 5,
+      "fit_assessment": "exploratory",
+      "definition": "Roles focused on building, testing, and maintaining software systems, applications, APIs, and technical tooling across frontend, backend, or full-stack scopes.",
+      "includes_profile_roles": [
+        "Frontend Engineer",
+        "Backend Engineer",
+        "Full-stack Engineer"
+      ],
+      "equivalent_titles": [
+        "Frontend Developer",
+        "Front End Developer",
+        "UI Engineer",
+        "Software Engineer Frontend",
+        "Web Developer Frontend",
+        "Backend Developer",
+        "Back End Developer",
+        "Software Engineer Backend",
+        "Back End Software Engineer",
+        "API Engineer",
+        "Full Stack Engineer",
+        "Full Stack Developer",
+        "Full-Stack Developer",
+        "Software Developer Full Stack",
+        "Software Engineer Full Stack",
+        "Product Engineer Full Stack"
+      ],
+      "subroles": [
+        "backend",
+        "frontend",
+        "full_stack",
+        "tooling",
+        "api_integration"
+      ],
+      "profile_alignment": {
+        "direct_experience": [],
+        "supporting_skills": [
+          "JavaScript",
+          "TypeScript",
+          "Python",
+          "Bash",
+          "REST APIs",
+          "Docker",
+          "Git",
+          "GitHub",
+          "Linux",
+          "CI/CD"
+        ],
+        "supporting_background": [
+          "Technical toolchain suggests engineering readiness, but direct software engineering work history is not yet explicit in profile.json"
+        ]
+      },
+      "selection_signals": [
+        "Job emphasizes application development, APIs, tooling, integration, or product software delivery.",
+        "Job values JavaScript/TypeScript or backend service development.",
+        "Role is better matched by software-building evidence than by analytics or data-system evidence.",
+        "Job expects general software engineering fundamentals more than domain-specific analytics or ML specialization."
+      ],
+      "deemphasize_when": [
+        "Role is mainly reporting, BI, or business analysis.",
+        "Role is clearly data platform, warehousing, or analytics engineering.",
+        "Role is centered on ML/AI solution ownership rather than general software development."
+      ],
+      "default_positioning": "Use this family selectively when the job is broad enough for a systems/tooling narrative or when you have project evidence that clearly reads as product or backend engineering. Do not treat it as the default family until the evidence layer contains stronger direct software examples."
+    }
+  ]
+}

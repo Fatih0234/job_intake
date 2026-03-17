@@ -57,6 +57,9 @@ search_profiles:
 ```
 
 Rule: keep searches in config, not hardcoded in scraping scripts.
+Treat configured keywords as search phrases, not exact title taxonomies:
+- prefer German student wording such as `Werkstudent` and `Praktikum`
+- allow adjacent family terms like `BI Engineer`, `Data Platform`, or `KI` when they improve recall without leaving the four in-scope families
 
 ### 2) LinkedIn Adapter Layer
 Purpose: handle LinkedIn-specific scraping.

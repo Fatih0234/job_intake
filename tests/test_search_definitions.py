@@ -61,7 +61,36 @@ def test_build_executable_searches_expands_repository_config() -> None:
     config = load_search_definitions_config(Settings())
 
     searches = build_executable_searches(config)
+    query_texts = {search.query_text for search in searches}
 
-    assert len(searches) == 15
+    assert len(searches) == 66
     assert searches[0].city == "Berlin"
     assert searches[0].search_url.startswith("https://www.linkedin.com/jobs/search/?")
+    assert "Werkstudent Data Engineering" in query_texts
+    assert "Werkstudent BI Engineer" in query_texts
+    assert "Praktikum Datenanalyse" in query_texts
+    assert "Werkstudent KI" in query_texts
+    assert "Werkstudent IT Data" in query_texts
+
+
+def test_repository_search_definition_keyword_counts_are_intentional() -> None:
+    config = load_search_definitions_config(Settings())
+    keyword_counts_by_definition = {
+        definition.name: len(definition.keywords)
+        for definition in config.search_definitions
+    }
+
+    assert keyword_counts_by_definition == {
+        "berlin_data_engineering_student": 6,
+        "hamburg_analytics_engineering_student": 6,
+        "munich_analytics_bi_student": 7,
+        "frankfurt_ml_ai_engineering_student": 7,
+        "cologne_data_student_general": 5,
+        "oldenburg_data_student_general": 5,
+        "bremen_data_student_general": 5,
+        "hanover_data_student_general": 5,
+        "stuttgart_data_student_general": 5,
+        "dusseldorf_data_student_general": 5,
+        "nuremberg_data_student_general": 5,
+        "leipzig_data_student_general": 5,
+    }
