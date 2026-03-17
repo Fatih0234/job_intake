@@ -15,7 +15,7 @@ def run_smoke_check(settings: Settings | None = None) -> dict[str, Any]:
     configs = load_all_configs(active_settings)
     executable_searches = build_executable_searches(configs.linkedin_searches)
 
-    fallback_url = "https://www.linkedin.com/jobs/view/1234567890/?trk=public_jobs_topcard-title"
+    fallback_url = "https://www.linkedin.com/jobs/collections/recommended/?currentJobId=1234567890"
 
     return {
         "settings_loaded": True,
