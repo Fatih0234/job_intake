@@ -2,7 +2,10 @@ positive_terms:
   - Werkstudent
   - working student
   - Praktikum
+  - Praktikant
+  - intern
   - internship
+  - student trainee
   - student assistant
   - studentische Hilfskraft
   - working student data
@@ -22,4 +25,3 @@ negative_terms:
   - staff engineer
   - director
   - full-time permanent
-

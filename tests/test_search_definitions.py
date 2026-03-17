@@ -63,13 +63,22 @@ def test_build_executable_searches_expands_repository_config() -> None:
     searches = build_executable_searches(config)
     query_texts = {search.query_text for search in searches}
 
-    assert len(searches) == 66
+    assert len(searches) == 114
     assert searches[0].city == "Berlin"
     assert searches[0].search_url.startswith("https://www.linkedin.com/jobs/search/?")
     assert "Werkstudent Data Engineering" in query_texts
+    assert "Praktikant Data Engineering" in query_texts
+    assert "Pflichtpraktikum Data Engineering" in query_texts
+    assert "Data Engineering Intern" in query_texts
+    assert "Student Trainee Data" in query_texts
     assert "Werkstudent BI Engineer" in query_texts
+    assert "Analytics Engineering Intern" in query_texts
+    assert "Student Trainee Analytics" in query_texts
     assert "Praktikum Datenanalyse" in query_texts
+    assert "Praktikant Business Intelligence" in query_texts
+    assert "Business Intelligence Intern" in query_texts
     assert "Werkstudent KI" in query_texts
+    assert "Machine Learning Intern" in query_texts
     assert "Werkstudent IT Data" in query_texts
 
 
@@ -81,16 +90,16 @@ def test_repository_search_definition_keyword_counts_are_intentional() -> None:
     }
 
     assert keyword_counts_by_definition == {
-        "berlin_data_engineering_student": 6,
-        "hamburg_analytics_engineering_student": 6,
-        "munich_analytics_bi_student": 7,
-        "frankfurt_ml_ai_engineering_student": 7,
-        "cologne_data_student_general": 5,
-        "oldenburg_data_student_general": 5,
-        "bremen_data_student_general": 5,
-        "hanover_data_student_general": 5,
-        "stuttgart_data_student_general": 5,
-        "dusseldorf_data_student_general": 5,
-        "nuremberg_data_student_general": 5,
-        "leipzig_data_student_general": 5,
+        "berlin_data_engineering_student": 10,
+        "hamburg_analytics_engineering_student": 10,
+        "munich_analytics_bi_student": 11,
+        "frankfurt_ml_ai_engineering_student": 11,
+        "cologne_data_student_general": 9,
+        "oldenburg_data_student_general": 9,
+        "bremen_data_student_general": 9,
+        "hanover_data_student_general": 9,
+        "stuttgart_data_student_general": 9,
+        "dusseldorf_data_student_general": 9,
+        "nuremberg_data_student_general": 9,
+        "leipzig_data_student_general": 9,
     }

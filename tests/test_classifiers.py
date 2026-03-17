@@ -46,6 +46,48 @@ def test_classify_student_fit_recognizes_german_working_student_signal() -> None
     assert "Werkstudent" in decision.signals["positive_terms"]
 
 
+def test_classify_student_fit_recognizes_praktikant_signal_in_title() -> None:
+    configs = load_all_configs()
+    job = build_job(
+        title="Praktikant Business Intelligence",
+        description_text="Support reporting and dashboard delivery.",
+        city="Munich",
+    )
+
+    decision = classify_student_fit(job, configs.student_fit_keywords)
+
+    assert decision.student_fit is StudentFit.TARGET_STUDENT_JOB
+    assert "Praktikant" in decision.signals["positive_terms"]
+
+
+def test_classify_student_fit_recognizes_intern_signal_in_title() -> None:
+    configs = load_all_configs()
+    job = build_job(
+        title="Data Engineering Intern",
+        description_text="Support ETL pipelines and warehouse jobs.",
+        city="Berlin",
+    )
+
+    decision = classify_student_fit(job, configs.student_fit_keywords)
+
+    assert decision.student_fit is StudentFit.TARGET_STUDENT_JOB
+    assert "intern" in decision.signals["positive_terms"]
+
+
+def test_classify_student_fit_recognizes_student_trainee_signal_in_title() -> None:
+    configs = load_all_configs()
+    job = build_job(
+        title="Student Trainee Analytics",
+        description_text="Support analytics engineering and reporting work.",
+        city="Hamburg",
+    )
+
+    decision = classify_student_fit(job, configs.student_fit_keywords)
+
+    assert decision.student_fit is StudentFit.TARGET_STUDENT_JOB
+    assert "student trainee" in decision.signals["positive_terms"]
+
+
 def test_classify_student_fit_marks_possible_when_only_supporting_terms_match() -> None:
     configs = load_all_configs()
     job = build_job(

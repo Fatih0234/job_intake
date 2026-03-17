@@ -26,6 +26,10 @@ search_definitions:
       - Werkstudent Data Engineer
       - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Praktikant Data Engineering
+      - Pflichtpraktikum Data Engineering
+      - Data Engineering Intern
+      - Student Trainee Data
       - Werkstudent ETL
       - working student data engineer
 
@@ -38,6 +42,10 @@ search_definitions:
       - Werkstudent Analytics Engineering
       - Werkstudent Analytics Engineer
       - Praktikum Analytics Engineering
+      - Praktikant Analytics Engineering
+      - Pflichtpraktikum Analytics
+      - Analytics Engineering Intern
+      - Student Trainee Analytics
       - Werkstudent dbt
       - Werkstudent BI Engineer
       - working student analytics engineer
@@ -51,6 +59,10 @@ search_definitions:
       - Werkstudent Business Intelligence
       - Werkstudent BI Analyst
       - Praktikum Business Intelligence
+      - Praktikant Business Intelligence
+      - Praktikant Data Analyst
+      - Pflichtpraktikum Business Intelligence
+      - Business Intelligence Intern
       - Werkstudent Data Analyst
       - Praktikum Datenanalyse
       - Werkstudent Power BI
@@ -65,6 +77,10 @@ search_definitions:
       - Werkstudent Machine Learning
       - Werkstudent Machine Learning Engineer
       - Praktikum Machine Learning
+      - Praktikant Machine Learning
+      - Pflichtpraktikum Machine Learning
+      - Machine Learning Intern
+      - AI Engineer Intern
       - Werkstudent KI
       - Praktikum KI
       - Werkstudent AI Engineer
@@ -80,6 +96,10 @@ search_definitions:
       - Werkstudent Data Engineer
       - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Praktikant Data Engineering
+      - Pflichtpraktikum Data Engineering
+      - Data Engineering Intern
+      - Student Trainee Data
       - Werkstudent IT Data
 
   - name: oldenburg_data_student_general
@@ -92,6 +112,10 @@ search_definitions:
       - Werkstudent Data Engineer
       - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Praktikant Data Engineering
+      - Pflichtpraktikum Data Engineering
+      - Data Engineering Intern
+      - Student Trainee Data
       - Werkstudent IT Data
 
   - name: bremen_data_student_general
@@ -104,6 +128,10 @@ search_definitions:
       - Werkstudent Data Engineer
       - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Praktikant Data Engineering
+      - Pflichtpraktikum Data Engineering
+      - Data Engineering Intern
+      - Student Trainee Data
       - Werkstudent IT Data
 
   - name: hanover_data_student_general
@@ -116,6 +144,10 @@ search_definitions:
       - Werkstudent Data Engineer
       - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Praktikant Data Engineering
+      - Pflichtpraktikum Data Engineering
+      - Data Engineering Intern
+      - Student Trainee Data
       - Werkstudent IT Data
 
   - name: stuttgart_data_student_general
@@ -128,6 +160,10 @@ search_definitions:
       - Werkstudent Data Engineer
       - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Praktikant Data Engineering
+      - Pflichtpraktikum Data Engineering
+      - Data Engineering Intern
+      - Student Trainee Data
       - Werkstudent IT Data
 
   - name: dusseldorf_data_student_general
@@ -140,6 +176,10 @@ search_definitions:
       - Werkstudent Data Engineer
       - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Praktikant Data Engineering
+      - Pflichtpraktikum Data Engineering
+      - Data Engineering Intern
+      - Student Trainee Data
       - Werkstudent IT Data
 
   - name: nuremberg_data_student_general
@@ -152,6 +192,10 @@ search_definitions:
       - Werkstudent Data Engineer
       - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Praktikant Data Engineering
+      - Pflichtpraktikum Data Engineering
+      - Data Engineering Intern
+      - Student Trainee Data
       - Werkstudent IT Data
 
   - name: leipzig_data_student_general
@@ -164,4 +208,8 @@ search_definitions:
       - Werkstudent Data Engineer
       - Praktikum Data Engineering
       - Praktikum Data Platform
+      - Praktikant Data Engineering
+      - Pflichtpraktikum Data Engineering
+      - Data Engineering Intern
+      - Student Trainee Data
       - Werkstudent IT Data
