@@ -22,14 +22,18 @@ def clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "NOTION_DATABASE_ID",
         "DEFAULT_NOTION_ROOT_PAGE_NAME",
         "DEFAULT_NOTION_DATABASE_NAME",
-    ):
+        ):
         monkeypatch.delenv(key, raising=False)
+
+
+def isolated_settings(**kwargs: object) -> Settings:
+    return Settings(_env_file=None, **kwargs)
 
 
 def test_settings_defaults_load_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
     clear_env(monkeypatch)
 
-    settings = Settings()
+    settings = isolated_settings()
 
     assert settings.supabase_project_ref == REQUIRED_SUPABASE_PROJECT_REF
     assert settings.supabase_url == REQUIRED_SUPABASE_URL
@@ -39,12 +43,12 @@ def test_settings_defaults_load_cleanly(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_settings_rejects_wrong_supabase_project_ref() -> None:
     with pytest.raises(ValidationError):
-        Settings(supabase_project_ref="wrong-project-ref")
+        isolated_settings(supabase_project_ref="wrong-project-ref")
 
 
-def test_database_dsn_required_raises_when_missing() -> None:
-    settings = Settings()
+def test_database_dsn_required_raises_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    clear_env(monkeypatch)
+    settings = isolated_settings()
 
     with pytest.raises(RuntimeError):
         _ = settings.database_dsn_required
-
