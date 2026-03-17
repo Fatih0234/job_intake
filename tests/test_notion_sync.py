@@ -92,6 +92,21 @@ def test_build_notion_job_properties_excludes_manual_fields() -> None:
     assert properties["Canonical Job Key"] == "linkedin:4185654374"
 
 
+def test_build_notion_job_properties_uses_sanitized_job_url() -> None:
+    candidate = build_candidate()
+    candidate.job = CanonicalJob(
+        **{
+            **candidate.job.model_dump(),
+            "source_job_url": "https://www.linkedin.com/jobs/view/\n4185654374/",
+            "normalized_job_url": "https://linkedin.com/jobs/view/\n4185654374",
+        }
+    )
+
+    properties = build_notion_job_properties(candidate.job, candidate.classification)
+
+    assert properties["Job URL"] == "https://linkedin.com/jobs/view/4185654374"
+
+
 def test_sync_shortlisted_jobs_creates_pages_for_new_target_candidates() -> None:
     client = FakeSyncClient()
     service = NotionSyncService(client, database_id="database-id")

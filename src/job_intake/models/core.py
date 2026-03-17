@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from job_intake.canonical import normalize_linkedin_job_url, sanitize_url_text
 from job_intake.models.common import Platform, RoleFamily, StudentFit
 
 
@@ -50,6 +51,11 @@ class JobDiscovery(BaseModel):
     discovered_at: datetime = Field(default_factory=utc_now)
     raw_payload: dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def normalize_fields(self) -> JobDiscovery:
+        self.discovery_url = sanitize_url_text(self.discovery_url)
+        return self
+
 
 class CanonicalJob(BaseModel):
     id: UUID | None = None
@@ -72,6 +78,14 @@ class CanonicalJob(BaseModel):
     last_seen_at: datetime = Field(default_factory=utc_now)
     source_search_name: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def normalize_fields(self) -> CanonicalJob:
+        self.source_job_url = sanitize_url_text(self.source_job_url)
+        self.normalized_job_url = normalize_linkedin_job_url(
+            self.normalized_job_url or self.source_job_url
+        )
+        return self
 
 
 class JobClassification(BaseModel):

@@ -7,10 +7,15 @@ from hashlib import sha256
 from urllib.parse import urlsplit, urlunsplit
 
 LINKEDIN_JOB_ID_RE = re.compile(r"/jobs/view/(?:[^/?#]*-)?(?P<job_id>\d+)")
+ASCII_WHITESPACE_RE = re.compile(r"[\t\n\r\f\v ]+")
+
+
+def sanitize_url_text(job_url: str) -> str:
+    return ASCII_WHITESPACE_RE.sub("", job_url.strip())
 
 
 def normalize_linkedin_job_url(job_url: str) -> str:
-    cleaned = job_url.strip()
+    cleaned = sanitize_url_text(job_url)
     parsed = urlsplit(cleaned)
 
     scheme = parsed.scheme or "https"
