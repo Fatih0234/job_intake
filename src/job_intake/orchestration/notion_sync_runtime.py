@@ -63,7 +63,7 @@ def _checksum_payload(
         {
             "properties": normalized,
             "content_blocks": [
-                {"type": getattr(block, "type"), "text": getattr(block, "text")}
+                {"type": block.type, "text": block.text}
                 for block in content_blocks
             ],
         },
@@ -102,7 +102,8 @@ class NotionShortlistSyncRunner:
         )
 
         try:
-            for record in records:
+            total_records = len(records)
+            for index, record in enumerate(records, start=1):
                 assert record.job.id is not None
                 candidate = NotionSyncCandidate(
                     job=record.job,
@@ -126,9 +127,22 @@ class NotionShortlistSyncRunner:
                     )
                     continue
 
-                self.logger.info("Syncing job %s to Notion", record.job.canonical_job_key)
+                self.logger.info(
+                    "Syncing job %s/%s to Notion: %s",
+                    index,
+                    total_records,
+                    record.job.canonical_job_key,
+                )
                 try:
-                    page_result = self.sync_service.sync_candidate(candidate)
+                    page_result = self.sync_service.sync_candidate_with_page_hint(
+                        candidate,
+                        existing_page_id=(
+                            existing_state.notion_page_id
+                            if existing_state is not None
+                            and existing_state.sync_status == "synced"
+                            else None
+                        ),
+                    )
                     self.repository.upsert_notion_sync_state(
                         job_id=record.job.id,
                         notion_page_id=page_result.page_id or (

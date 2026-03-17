@@ -16,8 +16,9 @@ def configure_logging(settings: Settings | None = None) -> None:
         stream=sys.stdout,
         force=True,
     )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
-

@@ -66,6 +66,14 @@ class NotionSyncService:
         return result
 
     def sync_candidate(self, candidate: NotionSyncCandidate) -> NotionSyncPageResult:
+        return self.sync_candidate_with_page_hint(candidate)
+
+    def sync_candidate_with_page_hint(
+        self,
+        candidate: NotionSyncCandidate,
+        *,
+        existing_page_id: str | None = None,
+    ) -> NotionSyncPageResult:
         if not self._is_sync_candidate(candidate.classification):
             return NotionSyncPageResult(action="skipped")
 
@@ -77,6 +85,14 @@ class NotionSyncService:
             candidate.job,
             candidate.classification,
         )
+        if existing_page_id:
+            updated_page = self.client.update_database_page(
+                page_id=existing_page_id,
+                properties=desired_properties,
+                content_blocks=desired_blocks,
+            )
+            return NotionSyncPageResult(action="updated", page_id=updated_page.id)
+
         existing_page = self.client.find_page_by_canonical_job_key(
             database_id=self.database_id,
             canonical_job_key=candidate.job.canonical_job_key,

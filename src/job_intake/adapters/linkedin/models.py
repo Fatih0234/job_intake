@@ -13,7 +13,7 @@ from job_intake.canonical import (
     extract_linkedin_external_job_id,
     normalize_linkedin_job_url,
 )
-from job_intake.models import CanonicalJob, JobDiscovery
+from job_intake.models import CanonicalJob, DescriptionBlock, JobDiscovery
 from job_intake.models.common import Platform
 
 
@@ -80,6 +80,7 @@ class LinkedInJobDetail(BaseModel):
     company: str
     location_raw: str | None = None
     description_text: str | None = None
+    description_blocks: list[DescriptionBlock] = Field(default_factory=list)
     employment_type: str | None = None
     seniority: str | None = None
     job_function: str | None = None
@@ -106,6 +107,7 @@ class LinkedInJobDetail(BaseModel):
             city=derive_city(self.location_raw),
             location_raw=self.location_raw,
             description_text=self.description_text,
+            description_blocks=self.description_blocks,
             employment_type=self.employment_type,
             seniority=self.seniority,
             posted_text=self.posted_text,

@@ -9,15 +9,24 @@ from job_intake.models.config import (
 )
 from job_intake.models.core import (
     CanonicalJob,
+    DescriptionBlock,
     JobClassification,
     JobDiscovery,
     SearchDefinition,
 )
-from job_intake.models.storage import NotionSyncState, PipelineRun
+from job_intake.models.storage import (
+    ClassifiedJobRecord,
+    DescriptionBackfillCandidate,
+    NotionSyncState,
+    PipelineRun,
+)
 from job_intake.search_definitions import ExecutableSearch
 
 __all__ = [
     "CanonicalJob",
+    "ClassifiedJobRecord",
+    "DescriptionBlock",
+    "DescriptionBackfillCandidate",
     "ExecutableSearch",
     "JobClassification",
     "JobDiscovery",

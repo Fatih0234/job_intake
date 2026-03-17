@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from job_intake.models.core import CanonicalJob, JobClassification, utc_now
+from job_intake.models.core import CanonicalJob, DescriptionBlock, JobClassification, utc_now
 
 
 class PipelineRun(BaseModel):
@@ -36,3 +36,11 @@ class ClassifiedJobRecord(BaseModel):
     job: CanonicalJob
     classification: JobClassification
     notion_sync_state: NotionSyncState | None = None
+
+
+class DescriptionBackfillCandidate(BaseModel):
+    job_id: UUID
+    canonical_job_key: str
+    description_text: str | None = None
+    description_blocks: list[DescriptionBlock] = Field(default_factory=list)
+    detail_html: str

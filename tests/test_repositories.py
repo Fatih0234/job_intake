@@ -167,6 +167,7 @@ def test_upsert_job_and_classification_keep_canonical_key_and_rule_fields() -> N
             title="Data Engineering Working Student",
             company="Acme Analytics",
             city="Berlin",
+            description_blocks=[{"type": "paragraph", "text": "Build ETL pipelines."}],
         )
     )
     repository.upsert_job_classification(
@@ -182,6 +183,9 @@ def test_upsert_job_and_classification_keep_canonical_key_and_rule_fields() -> N
 
     assert job_id == connection.next_id
     assert "insert into jobs" in connection.calls[0][0].lower()
+    assert connection.calls[0][1]["description_blocks"].obj == [
+        {"type": "paragraph", "text": "Build ETL pipelines."}
+    ]
     assert "insert into job_classifications" in connection.calls[1][0].lower()
 
 
@@ -201,6 +205,7 @@ def test_list_latest_unclassified_jobs_returns_canonical_jobs() -> None:
             "country": "Germany",
             "location_raw": "Berlin, Germany",
             "description_text": "Build ETL pipelines.",
+            "description_blocks": [{"type": "paragraph", "text": "Build ETL pipelines."}],
             "employment_type": None,
             "seniority": None,
             "posted_text": "2 days ago",
@@ -217,6 +222,7 @@ def test_list_latest_unclassified_jobs_returns_canonical_jobs() -> None:
 
     assert len(jobs) == 1
     assert jobs[0].canonical_job_key == "linkedin:4185654374"
+    assert jobs[0].description_blocks[0].type == "paragraph"
     assert "left join job_classifications" in connection.calls[0][0].lower()
     assert connection.calls[0][1] == {"limit": 10}
 
@@ -237,6 +243,7 @@ def test_list_shortlisted_jobs_for_notion_sync_returns_joined_records() -> None:
             "country": "Germany",
             "location_raw": "Berlin, Germany",
             "description_text": "Build ETL pipelines.",
+            "description_blocks": [{"type": "paragraph", "text": "Build ETL pipelines."}],
             "employment_type": None,
             "seniority": None,
             "posted_text": "2 days ago",
@@ -268,9 +275,57 @@ def test_list_shortlisted_jobs_for_notion_sync_returns_joined_records() -> None:
     assert len(records) == 1
     assert records[0].job.id == UUID("00000000-0000-4000-8000-000000000031")
     assert records[0].classification.student_fit is StudentFit.TARGET_STUDENT_JOB
+    assert records[0].job.description_blocks[0].text == "Build ETL pipelines."
     assert records[0].notion_sync_state is not None
     assert records[0].notion_sync_state.payload_checksum == "abc123"
     assert "left join notion_sync_state" in connection.calls[0][0].lower()
+
+
+def test_list_jobs_for_description_backfill_returns_candidates_with_detail_html() -> None:
+    connection = FakeConnection()
+    connection.fetchall_rows = [
+        {
+            "job_id": "00000000-0000-4000-8000-000000000051",
+            "canonical_job_key": "linkedin:4185654374",
+            "description_text": "Build ETL pipelines.",
+            "description_blocks": [],
+            "detail_html": (
+                "<div class=\"show-more-less-html__markup\">"
+                "<p>Build ETL pipelines.</p>"
+                "</div>"
+            ),
+        }
+    ]
+
+    repository = JobIntakeRepository(connection)
+    candidates = repository.list_jobs_for_description_backfill(limit=5)
+
+    assert len(candidates) == 1
+    assert candidates[0].canonical_job_key == "linkedin:4185654374"
+    assert candidates[0].detail_html.startswith("<div")
+    assert "metadata->>'detail_html'" in connection.calls[0][0]
+
+
+def test_update_job_description_content_persists_structured_blocks() -> None:
+    connection = FakeConnection()
+    repository = JobIntakeRepository(connection)
+
+    repository.update_job_description_content(
+        job_id=UUID("00000000-0000-4000-8000-000000000052"),
+        description_text="Your tasks\n\nBuild ETL pipelines.",
+        description_blocks=[
+            {"type": "heading", "text": "Your tasks"},
+            {"type": "paragraph", "text": "Build ETL pipelines."},
+        ],
+    )
+
+    sql, params = connection.calls[0]
+    assert "update jobs" in sql.lower()
+    assert params["description_text"] == "Your tasks\n\nBuild ETL pipelines."
+    assert params["description_blocks"].obj == [
+        {"type": "heading", "text": "Your tasks"},
+        {"type": "paragraph", "text": "Build ETL pipelines."},
+    ]
 
 
 def test_upsert_notion_sync_state_persists_status_and_checksum() -> None:

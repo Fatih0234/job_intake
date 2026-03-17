@@ -99,6 +99,18 @@ Apply the backfill:
 uv run python scripts/backfill_job_discoveries.py --apply
 ```
 
+Preview structured-description backfill candidates from stored LinkedIn detail HTML:
+
+```bash
+uv run python scripts/backfill_job_description_blocks.py --limit-jobs 100
+```
+
+Apply the structured-description backfill:
+
+```bash
+uv run python scripts/backfill_job_description_blocks.py --apply --limit-jobs 100
+```
+
 Run live LinkedIn public search discovery for the configured searches:
 
 ```bash
@@ -207,6 +219,9 @@ For the DB-backed runner:
 - `uv run python scripts/run_live_details.py` fetches live LinkedIn job detail pages for unlinked discovery rows and upserts canonical jobs
 - `uv run python scripts/run_live_classification.py` classifies canonical jobs that do not yet have `job_classifications` rows
 - `uv run python scripts/run_notion_sync.py` syncs shortlisted `target_student_job` rows into the configured Notion database and records sync state in Supabase
+- synced Notion page bodies now contain only the formatted job description; review workflow remains in database properties
+- subsequent Notion sync reruns avoid a redundant page lookup when `notion_sync_state.notion_page_id` is already known
+- per-request `httpx` logs are suppressed during normal runs so long syncs show pipeline progress instead of raw HTTP chatter
 - `SUPABASE_DB_URL` must be a full pooler DSN in `.env.local`
 - `NOTION_API_TOKEN` and `NOTION_DATABASE_ID` are required for runtime Notion sync
 - do not point runtime code at `supabase/.temp/pooler-url`; that file is only a local CLI clue if you need to reconstruct the pooler host

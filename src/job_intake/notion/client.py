@@ -2,29 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from collections.abc import Sequence
 from typing import Any, Protocol, cast
 
 from notion_client import Client
 
-from job_intake.notion.mapper import NotionPageBlock, REVIEWER_NOTES_HEADING
+from job_intake.notion.mapper import NotionPageBlock
 from job_intake.notion.schema import DATABASE_PROPERTY_SPECS
 from job_intake.settings import Settings, get_settings
 
 RICH_TEXT_CHUNK_SIZE = 1800
-SUPPORTED_BLOCK_TYPES = {
-    "paragraph",
-    "bulleted_list_item",
-    "numbered_list_item",
-    "heading_1",
-    "heading_2",
-    "heading_3",
-    "quote",
-    "toggle",
-    "to_do",
-}
 
 
 @dataclass(slots=True)
@@ -450,14 +439,8 @@ class DirectNotionWorkspaceClient:
 
     def _extract_managed_blocks(self, page_id: str) -> tuple[NotionPageBlock, ...]:
         blocks = self._list_block_children(page_id)
-        reviewer_notes_index = self._find_reviewer_notes_index(blocks)
-        managed_source = (
-            blocks[: reviewer_notes_index + 1]
-            if reviewer_notes_index >= 0
-            else blocks
-        )
         managed_blocks: list[NotionPageBlock] = []
-        for block in managed_source:
+        for block in blocks:
             page_block = self._to_page_block(block)
             if page_block is not None:
                 managed_blocks.append(page_block)
@@ -465,7 +448,13 @@ class DirectNotionWorkspaceClient:
 
     def _to_page_block(self, block: dict[str, Any]) -> NotionPageBlock | None:
         block_type = block["type"]
-        if block_type not in {"heading_2", "paragraph", "bulleted_list_item"}:
+        if block_type not in {
+            "heading_2",
+            "heading_3",
+            "paragraph",
+            "bulleted_list_item",
+            "numbered_list_item",
+        }:
             return None
         return NotionPageBlock(
             type=block_type,
@@ -479,20 +468,7 @@ class DirectNotionWorkspaceClient:
         managed_blocks: tuple[NotionPageBlock, ...],
     ) -> None:
         existing_blocks = self._list_block_children(page_id)
-        reviewer_notes_index = self._find_reviewer_notes_index(existing_blocks)
-        if reviewer_notes_index >= 0:
-            manual_blocks = existing_blocks[reviewer_notes_index + 1 :]
-        elif existing_blocks:
-            manual_blocks = existing_blocks
-        else:
-            manual_blocks = []
-
         new_blocks = self._build_block_payload(managed_blocks)
-        for block in manual_blocks:
-            cloned = self._clone_block_for_append(block)
-            if cloned is not None:
-                new_blocks.append(cloned)
-
         self._delete_blocks(existing_blocks)
         if new_blocks:
             self._append_blocks(page_id, new_blocks)
@@ -516,14 +492,6 @@ class DirectNotionWorkspaceClient:
 
         return blocks
 
-    def _find_reviewer_notes_index(self, blocks: Sequence[dict[str, Any]]) -> int:
-        for index, block in enumerate(blocks):
-            if block["type"] != "heading_2":
-                continue
-            if self._extract_block_text(block) == REVIEWER_NOTES_HEADING:
-                return index
-        return -1
-
     def _extract_block_text(self, block: dict[str, Any]) -> str:
         block_type = block["type"]
         payload = block.get(block_type, {})
@@ -531,33 +499,6 @@ class DirectNotionWorkspaceClient:
             fragment.get("plain_text", "")
             for fragment in payload.get("rich_text", [])
         )
-
-    def _clone_block_for_append(self, block: dict[str, Any]) -> dict[str, Any] | None:
-        block_type = block["type"]
-        if block_type not in SUPPORTED_BLOCK_TYPES:
-            text = self._extract_block_text(block)
-            if not text:
-                return None
-            return {
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "rich_text": self._build_rich_text(text),
-                },
-            }
-
-        payload = block.get(block_type, {})
-        cloned_payload: dict[str, Any] = {
-            "rich_text": self._build_rich_text(self._extract_block_text(block)),
-        }
-        if block_type == "to_do":
-            cloned_payload["checked"] = bool(payload.get("checked", False))
-
-        return {
-            "object": "block",
-            "type": block_type,
-            block_type: cloned_payload,
-        }
 
     def _delete_blocks(self, blocks: Sequence[dict[str, Any]]) -> None:
         for block in blocks:

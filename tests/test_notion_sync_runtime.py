@@ -78,6 +78,7 @@ class FakeRuntimeSyncClient:
         self.pages: dict[str, NotionPageRecord] = {}
         self.creates = 0
         self.updates = 0
+        self.finds = 0
 
     def find_page_by_canonical_job_key(
         self,
@@ -85,6 +86,7 @@ class FakeRuntimeSyncClient:
         database_id: str,
         canonical_job_key: str,
     ) -> NotionPageRecord | None:
+        self.finds += 1
         return self.pages.get(canonical_job_key)
 
     def create_database_page(
@@ -192,3 +194,24 @@ def test_notion_sync_runtime_runner_skips_when_payload_checksum_matches() -> Non
     assert summary.synced_skipped == 1
     assert sync_client.creates == 0
     assert sync_client.updates == 0
+
+
+def test_notion_sync_runtime_runner_uses_known_page_id_for_updates() -> None:
+    record = build_record()
+    record.notion_sync_state = NotionSyncState(
+        job_id=UUID("00000000-0000-4000-8000-000000000010"),
+        notion_page_id="page-1",
+        sync_status="synced",
+        payload_checksum="stale-checksum",
+    )
+    repository = FakeSyncRuntimeRepository([record])
+    sync_client = FakeRuntimeSyncClient()
+    sync_service = NotionSyncService(sync_client, database_id="database-id")
+    runner = NotionShortlistSyncRunner(repository, sync_service=sync_service)
+
+    summary = runner.run(limit_jobs=1)
+
+    assert summary.synced_created == 0
+    assert summary.synced_updated == 1
+    assert sync_client.finds == 0
+    assert sync_client.updates == 1

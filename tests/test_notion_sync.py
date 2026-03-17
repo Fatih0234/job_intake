@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from job_intake.models import CanonicalJob, JobClassification, RoleFamily, StudentFit
+from job_intake.models import (
+    CanonicalJob,
+    DescriptionBlock,
+    JobClassification,
+    RoleFamily,
+    StudentFit,
+)
 from job_intake.notion.client import NotionPageRecord
 from job_intake.notion.mapper import (
-    REVIEWER_NOTES_HEADING,
+    NotionPageBlock,
     build_description_snippet,
     build_notion_job_page_blocks,
     build_notion_job_properties,
@@ -19,6 +25,7 @@ class FakeSyncClient:
         self.created_pages: list[dict[str, object | None]] = []
         self.created_blocks: list[tuple[object, ...]] = []
         self.updated_pages: list[tuple[str, dict[str, object | None], tuple[object, ...]]] = []
+        self.find_calls = 0
 
     def find_page_by_canonical_job_key(
         self,
@@ -26,6 +33,7 @@ class FakeSyncClient:
         database_id: str,
         canonical_job_key: str,
     ) -> NotionPageRecord | None:
+        self.find_calls += 1
         return self.pages.get(canonical_job_key)
 
     def create_database_page(
@@ -129,17 +137,37 @@ def test_build_description_snippet_normalizes_whitespace_and_caps_length() -> No
     assert len(snippet) <= 453
 
 
-def test_build_notion_job_page_blocks_includes_manual_notes_anchor() -> None:
+def test_build_notion_job_page_blocks_returns_description_only() -> None:
     candidate = build_candidate()
 
     blocks = build_notion_job_page_blocks(candidate.job, candidate.classification)
 
-    assert blocks[-1].type == "heading_2"
-    assert blocks[-1].text == REVIEWER_NOTES_HEADING
-    assert any(
-        block.text == "Source Job URL: https://www.linkedin.com/jobs/view/4185654374/"
-        for block in blocks
+    assert blocks == [
+        NotionPageBlock(type="paragraph", text="Build ETL pipelines with Airflow."),
+    ]
+
+
+def test_build_notion_job_page_blocks_renders_structured_description_blocks() -> None:
+    candidate = build_candidate()
+    candidate.job = CanonicalJob(
+        **{
+            **candidate.job.model_dump(),
+            "description_blocks": [
+                DescriptionBlock(type="heading", text="Your tasks"),
+                DescriptionBlock(type="bulleted_list_item", text="Build pipelines"),
+                DescriptionBlock(type="numbered_list_item", text="Present updates"),
+            ],
+        }
     )
+
+    blocks = build_notion_job_page_blocks(candidate.job, candidate.classification)
+
+    assert blocks[0].type == "heading_3"
+    assert blocks[0].text == "Your tasks"
+    assert blocks[1].type == "bulleted_list_item"
+    assert blocks[1].text == "Build pipelines"
+    assert blocks[2].type == "numbered_list_item"
+    assert blocks[2].text == "Present updates"
 
 
 def test_sync_shortlisted_jobs_creates_pages_for_new_target_candidates() -> None:
@@ -164,6 +192,7 @@ def test_sync_shortlisted_jobs_skips_when_managed_fields_are_unchanged() -> None
     assert result.created == 0
     assert result.updated == 0
     assert result.skipped == 1
+    assert client.find_calls == 2
 
 
 def test_sync_shortlisted_jobs_updates_existing_pages_when_managed_fields_change() -> None:
@@ -180,6 +209,22 @@ def test_sync_shortlisted_jobs_updates_existing_pages_when_managed_fields_change
     assert result.skipped == 0
 
 
+def test_sync_candidate_with_page_hint_updates_without_lookup() -> None:
+    client = FakeSyncClient()
+    service = NotionSyncService(client, database_id="database-id")
+    candidate = build_candidate(posted_text="today")
+
+    result = service.sync_candidate_with_page_hint(
+        candidate,
+        existing_page_id="page-123",
+    )
+
+    assert result.action == "updated"
+    assert result.page_id == "page-123"
+    assert client.find_calls == 0
+    assert client.updated_pages[0][0] == "page-123"
+
+
 def test_sync_shortlisted_jobs_updates_existing_pages_when_only_page_body_changes() -> None:
     client = FakeSyncClient()
     service = NotionSyncService(client, database_id="database-id")
@@ -188,14 +233,22 @@ def test_sync_shortlisted_jobs_updates_existing_pages_when_only_page_body_change
     original.job = CanonicalJob(
         **{
             **original.job.model_dump(),
-            "description_text": long_description,
+            "description_blocks": [
+                DescriptionBlock(type="paragraph", text=long_description),
+            ],
         }
     )
     changed = build_candidate()
     changed.job = CanonicalJob(
         **{
             **changed.job.model_dump(),
-            "description_text": long_description + "\n\nThis sentence only appears in the page body.",
+            "description_blocks": [
+                DescriptionBlock(type="paragraph", text=long_description),
+                DescriptionBlock(
+                    type="paragraph",
+                    text="This sentence only appears in the page body.",
+                ),
+            ],
         }
     )
 

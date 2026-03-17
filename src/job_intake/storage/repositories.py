@@ -10,6 +10,7 @@ from psycopg.types.json import Jsonb
 
 from job_intake.models import (
     CanonicalJob,
+    DescriptionBackfillCandidate,
     JobClassification,
     JobDiscovery,
     NotionSyncState,
@@ -266,6 +267,7 @@ class JobIntakeRepository:
                 j.country,
                 j.location_raw,
                 j.description_text,
+                j.description_blocks,
                 j.employment_type,
                 j.seniority,
                 j.posted_text,
@@ -284,6 +286,48 @@ class JobIntakeRepository:
         ).fetchall()
         return [CanonicalJob.model_validate(row) for row in rows]
 
+    def list_jobs_for_description_backfill(
+        self,
+        *,
+        limit: int,
+        include_already_structured: bool = False,
+    ) -> list[DescriptionBackfillCandidate]:
+        structured_filter = ""
+        if not include_already_structured:
+            structured_filter = """
+              and coalesce(jsonb_array_length(j.description_blocks), 0) = 0
+            """
+
+        rows = self.connection.execute(
+            f"""
+            select
+                j.id as job_id,
+                j.canonical_job_key,
+                j.description_text,
+                j.description_blocks,
+                j.metadata->>'detail_html' as detail_html
+            from jobs j
+            where
+                jsonb_typeof(j.metadata->'detail_html') = 'string'
+                {structured_filter}
+            order by j.last_seen_at desc, j.created_at desc
+            limit %(limit)s
+            """,
+            {"limit": limit},
+        ).fetchall()
+        return [
+            DescriptionBackfillCandidate.model_validate(
+                {
+                    "job_id": row["job_id"],
+                    "canonical_job_key": row["canonical_job_key"],
+                    "description_text": row["description_text"],
+                    "description_blocks": row["description_blocks"] or [],
+                    "detail_html": row["detail_html"],
+                }
+            )
+            for row in rows
+        ]
+
     def list_shortlisted_jobs_for_notion_sync(self, *, limit: int) -> list[ClassifiedJobRecord]:
         rows = self.connection.execute(
             """
@@ -300,6 +344,7 @@ class JobIntakeRepository:
                 j.country,
                 j.location_raw,
                 j.description_text,
+                j.description_blocks,
                 j.employment_type,
                 j.seniority,
                 j.posted_text,
@@ -349,6 +394,7 @@ class JobIntakeRepository:
                     "country": row["country"],
                     "location_raw": row["location_raw"],
                     "description_text": row["description_text"],
+                    "description_blocks": row["description_blocks"] or [],
                     "employment_type": row["employment_type"],
                     "seniority": row["seniority"],
                     "posted_text": row["posted_text"],
@@ -409,6 +455,7 @@ class JobIntakeRepository:
                 country,
                 location_raw,
                 description_text,
+                description_blocks,
                 employment_type,
                 seniority,
                 posted_text,
@@ -430,6 +477,7 @@ class JobIntakeRepository:
                 %(country)s,
                 %(location_raw)s,
                 %(description_text)s,
+                %(description_blocks)s,
                 %(employment_type)s,
                 %(seniority)s,
                 %(posted_text)s,
@@ -450,6 +498,7 @@ class JobIntakeRepository:
                 country = excluded.country,
                 location_raw = excluded.location_raw,
                 description_text = excluded.description_text,
+                description_blocks = excluded.description_blocks,
                 employment_type = excluded.employment_type,
                 seniority = excluded.seniority,
                 posted_text = excluded.posted_text,
@@ -472,6 +521,9 @@ class JobIntakeRepository:
                 "country": job.country,
                 "location_raw": job.location_raw,
                 "description_text": job.description_text,
+                "description_blocks": Jsonb(
+                    [block.model_dump(mode="json") for block in job.description_blocks]
+                ),
                 "employment_type": job.employment_type,
                 "seniority": job.seniority,
                 "posted_text": job.posted_text,
@@ -483,6 +535,29 @@ class JobIntakeRepository:
             },
         ).fetchone()
         return _read_uuid(row)
+
+    def update_job_description_content(
+        self,
+        *,
+        job_id: UUID,
+        description_text: str | None,
+        description_blocks: list[dict[str, object]],
+    ) -> None:
+        self.connection.execute(
+            """
+            update jobs
+            set
+                description_text = %(description_text)s,
+                description_blocks = %(description_blocks)s,
+                updated_at = timezone('utc', now())
+            where id = %(job_id)s
+            """,
+            {
+                "job_id": job_id,
+                "description_text": description_text,
+                "description_blocks": Jsonb(description_blocks),
+            },
+        )
 
     def upsert_job_classification(self, job_id: UUID, classification: JobClassification) -> UUID:
         row = self.connection.execute(

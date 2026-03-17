@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import re
 from html import unescape
+from html.parser import HTMLParser
 from typing import Any
 
 from job_intake.adapters.linkedin.models import LinkedInJobDetail, parse_iso_datetime
+from job_intake.models import DescriptionBlock
 
 CLASS_ATTR_RE = re.compile(r'class="[^"]*\b{class_name}\b[^"]*"')
 ATTR_RE_TEMPLATE = r'{attribute}="(?P<value>[^"]+)"'
@@ -59,6 +61,19 @@ def _extract_text(block: str, *, class_name: str, tag: str) -> str | None:
         return None
     cleaned = _strip_tags(match.group("value"))
     return cleaned or None
+
+
+def _extract_inner_html(block: str, *, class_name: str, tag: str) -> str | None:
+    pattern = re.compile(
+        rf"<{tag}\b[^>]*{CLASS_ATTR_RE.pattern.format(class_name=re.escape(class_name))}[^>]*>"
+        rf"(?P<value>.*?)</{tag}>",
+        re.IGNORECASE | re.DOTALL,
+    )
+    match = pattern.search(block)
+    if not match:
+        return None
+    value = match.group("value").strip()
+    return value or None
 
 
 def _extract_metadata_attr(
@@ -130,11 +145,149 @@ def _extract_jsonld_location(job_posting: dict[str, Any]) -> str | None:
     return None
 
 
-def _extract_jsonld_description(job_posting: dict[str, Any]) -> str | None:
+def _extract_jsonld_description_html(job_posting: dict[str, Any]) -> str | None:
     description = job_posting.get("description")
     if not isinstance(description, str) or not description.strip():
         return None
-    return _strip_tags(unescape(description))
+    return unescape(description)
+
+
+def _normalize_block_text(value: str) -> str:
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
+    lines = [line.strip() for line in value.split("\n")]
+    while lines and not lines[0]:
+        lines.pop(0)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(lines).strip()
+
+
+class _DescriptionHTMLParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.blocks: list[DescriptionBlock] = []
+        self._list_stack: list[str] = []
+        self._current_block_type: str | None = None
+        self._current_parts: list[str] = []
+        self._root_parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        del attrs
+        if tag == "br":
+            self._append_text("\n")
+            return
+        if tag in {"ul", "ol"}:
+            self._flush_root_blocks()
+            self._list_stack.append(
+                "numbered_list_item" if tag == "ol" else "bulleted_list_item",
+            )
+            return
+        if tag in {"p", "li", "h1", "h2", "h3", "h4", "h5", "h6"}:
+            self._flush_root_blocks()
+            self._start_block(self._block_type_for_tag(tag))
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"p", "li", "h1", "h2", "h3", "h4", "h5", "h6"}:
+            self._finish_current_block()
+            return
+        if tag in {"ul", "ol"} and self._list_stack:
+            self._list_stack.pop()
+            self._flush_root_blocks()
+
+    def handle_data(self, data: str) -> None:
+        self._append_text(data)
+
+    def close(self) -> None:
+        super().close()
+        self._finish_current_block()
+        self._flush_root_blocks()
+
+    def _append_text(self, value: str) -> None:
+        if self._current_block_type is not None:
+            self._current_parts.append(value)
+        else:
+            self._root_parts.append(value)
+
+    def _block_type_for_tag(self, tag: str) -> str:
+        if tag.startswith("h"):
+            return "heading"
+        if tag == "li":
+            return self._list_stack[-1] if self._list_stack else "bulleted_list_item"
+        return "paragraph"
+
+    def _start_block(self, block_type: str) -> None:
+        self._finish_current_block()
+        self._current_block_type = block_type
+        self._current_parts = []
+
+    def _finish_current_block(self) -> None:
+        if self._current_block_type is None:
+            return
+        self._append_block(self._current_block_type, "".join(self._current_parts))
+        self._current_block_type = None
+        self._current_parts = []
+
+    def _flush_root_blocks(self) -> None:
+        if not self._root_parts:
+            return
+        raw_text = "".join(self._root_parts)
+        self._root_parts = []
+        for chunk in re.split(r"\n\s*\n+", raw_text):
+            self._append_block("paragraph", chunk)
+
+    def _append_block(self, block_type: str, raw_text: str) -> None:
+        text = _normalize_block_text(unescape(raw_text))
+        if not text:
+            return
+        candidate = DescriptionBlock(type=block_type, text=text)
+        if self.blocks and self.blocks[-1] == candidate:
+            return
+        self.blocks.append(candidate)
+
+
+def _parse_description_blocks(description_html: str | None) -> list[DescriptionBlock]:
+    if not description_html or not description_html.strip():
+        return []
+    parser = _DescriptionHTMLParser()
+    parser.feed(description_html)
+    parser.close()
+    return parser.blocks
+
+
+def _description_text_from_blocks(blocks: list[DescriptionBlock]) -> str | None:
+    if not blocks:
+        return None
+    return "\n\n".join(block.text for block in blocks)
+
+
+def _extract_description(
+    html: str,
+    *,
+    job_posting: dict[str, Any],
+) -> tuple[str | None, list[DescriptionBlock]]:
+    description_html = _extract_inner_html(
+        html,
+        class_name="show-more-less-html__markup",
+        tag="div",
+    )
+    if not description_html:
+        description_html = _extract_jsonld_description_html(job_posting)
+
+    description_blocks = _parse_description_blocks(description_html)
+    description_text = _description_text_from_blocks(description_blocks)
+    if description_text:
+        return description_text, description_blocks
+    if not description_html:
+        return None, []
+
+    fallback_text = _strip_tags(description_html)
+    if not fallback_text:
+        return None, []
+    return fallback_text, [DescriptionBlock(type="paragraph", text=fallback_text)]
+
+
+def extract_job_description_content(html: str) -> tuple[str | None, list[DescriptionBlock]]:
+    return _extract_description(html, job_posting=_extract_job_posting_jsonld(html))
 
 
 def _extract_criteria(block: str) -> dict[str, str]:
@@ -202,9 +355,7 @@ def parse_job_detail_page(html: str, *, source_search_name: str | None = None) -
         location_raw = _extract_jsonld_location(job_posting)
 
     posted_text = _extract_text(html, class_name="posted-time-ago__text", tag="span")
-    description_text = _extract_text(html, class_name="show-more-less-html__markup", tag="div")
-    if not description_text:
-        description_text = _extract_jsonld_description(job_posting)
+    description_text, description_blocks = _extract_description(html, job_posting=job_posting)
 
     posted_datetime = _extract_attr(html, class_name="posted-time-ago__text", attribute="datetime")
     if not posted_datetime:
@@ -227,6 +378,7 @@ def parse_job_detail_page(html: str, *, source_search_name: str | None = None) -
         company=company,
         location_raw=location_raw,
         description_text=description_text,
+        description_blocks=description_blocks,
         employment_type=criteria.get("employment_type"),
         seniority=criteria.get("seniority"),
         job_function=criteria.get("job_function"),

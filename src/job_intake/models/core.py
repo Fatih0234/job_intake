@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -14,6 +14,16 @@ from job_intake.models.common import Platform, RoleFamily, StudentFit
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+class DescriptionBlock(BaseModel):
+    type: Literal["heading", "paragraph", "bulleted_list_item", "numbered_list_item"]
+    text: str
+
+    @model_validator(mode="after")
+    def normalize_fields(self) -> DescriptionBlock:
+        self.text = self.text.replace("\r\n", "\n").replace("\r", "\n").strip()
+        return self
 
 
 class SearchDefinition(BaseModel):
@@ -70,6 +80,7 @@ class CanonicalJob(BaseModel):
     country: str = "Germany"
     location_raw: str | None = None
     description_text: str | None = None
+    description_blocks: list[DescriptionBlock] = Field(default_factory=list)
     employment_type: str | None = None
     seniority: str | None = None
     posted_text: str | None = None

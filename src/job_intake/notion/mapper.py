@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import re
 
-from job_intake.models import CanonicalJob, JobClassification
+from job_intake.models import CanonicalJob, DescriptionBlock, JobClassification
 from job_intake.notion.schema import MANUAL_FIELDS_TO_PRESERVE, required_database_properties
 
 DESCRIPTION_SNIPPET_LENGTH = 450
-SYNCED_OVERVIEW_HEADING = "Synced Overview"
-DESCRIPTION_HEADING = "Description"
-SYNC_METADATA_HEADING = "Sync Metadata"
-REVIEWER_NOTES_HEADING = "Reviewer Notes"
 WHITESPACE_RE = re.compile(r"\s+")
 
 
@@ -83,81 +79,10 @@ def build_notion_job_page_blocks(
     synced_at: datetime | None = None,
 ) -> list[NotionPageBlock]:
     _ = synced_at or datetime.now(UTC)
-    description_paragraphs = _description_paragraphs(job.description_text)
-
-    blocks = [
-        NotionPageBlock(type="heading_2", text=SYNCED_OVERVIEW_HEADING),
-        NotionPageBlock(type="bulleted_list_item", text=f"Company: {job.company}"),
-        NotionPageBlock(type="bulleted_list_item", text=f"City: {job.city}"),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Location Raw: {_display_value(job.location_raw)}",
-        ),
-        NotionPageBlock(type="bulleted_list_item", text=f"Platform: {job.platform.value}"),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Role Family: {classification.role_family.value}",
-        ),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Student Fit: {classification.student_fit.value}",
-        ),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Employment Type: {_display_value(job.employment_type)}",
-        ),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Seniority: {_display_value(job.seniority)}",
-        ),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Posted Text: {_display_value(job.posted_text)}",
-        ),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Posted At: {_display_datetime(job.posted_at)}",
-        ),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Last Seen At: {_display_datetime(job.last_seen_at)}",
-        ),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Source Search Name: {_display_value(job.source_search_name)}",
-        ),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=f"Source Job URL: {job.source_job_url}",
-        ),
-        NotionPageBlock(
-            type="bulleted_list_item",
-            text=(
-                "Shortlist Reason: "
-                f"{_display_value(classification.shortlist_reason)}"
-            ),
-        ),
-        NotionPageBlock(type="heading_2", text=DESCRIPTION_HEADING),
-    ]
-    blocks.extend(
-        NotionPageBlock(type="paragraph", text=paragraph)
-        for paragraph in description_paragraphs
+    return _description_page_blocks(
+        job.description_blocks,
+        fallback_description_text=job.description_text,
     )
-    blocks.extend(
-        [
-            NotionPageBlock(type="heading_2", text=SYNC_METADATA_HEADING),
-            NotionPageBlock(
-                type="bulleted_list_item",
-                text=f"Canonical Job Key: {job.canonical_job_key}",
-            ),
-            NotionPageBlock(
-                type="bulleted_list_item",
-                text=f"Normalized Job URL: {job.normalized_job_url}",
-            ),
-            NotionPageBlock(type="heading_2", text=REVIEWER_NOTES_HEADING),
-        ]
-    )
-    return blocks
 
 
 def _normalize_inline_text(value: str | None) -> str | None:
@@ -178,11 +103,29 @@ def _description_paragraphs(description_text: str | None) -> list[str]:
     return [normalized]
 
 
-def _display_datetime(value: datetime | None) -> str:
-    if value is None:
-        return "n/a"
-    return value.isoformat()
+def _description_page_blocks(
+    description_blocks: list[DescriptionBlock],
+    *,
+    fallback_description_text: str | None,
+) -> list[NotionPageBlock]:
+    if description_blocks:
+        return [
+            NotionPageBlock(
+                type=_map_description_block_type(block.type),
+                text=block.text,
+            )
+            for block in description_blocks
+        ]
+
+    return [
+        NotionPageBlock(type="paragraph", text=paragraph)
+        for paragraph in _description_paragraphs(fallback_description_text)
+    ]
 
 
-def _display_value(value: str | None) -> str:
-    return value.strip() if value and value.strip() else "n/a"
+def _map_description_block_type(block_type: str) -> str:
+    if block_type == "heading":
+        return "heading_3"
+    if block_type in {"paragraph", "bulleted_list_item", "numbered_list_item"}:
+        return block_type
+    raise ValueError(f"Unsupported description block type {block_type!r}.")
