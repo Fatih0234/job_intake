@@ -18,10 +18,15 @@ DATABASE_PROPERTY_SPECS = {
     "Job Title": NotionPropertySpec(type="title"),
     "Company": NotionPropertySpec(type="rich_text"),
     "City": NotionPropertySpec(type="rich_text"),
+    "Location Raw": NotionPropertySpec(type="rich_text", optional=True),
     "Platform": NotionPropertySpec(type="select"),
     "Role Family": NotionPropertySpec(type="select"),
     "Student Fit": NotionPropertySpec(type="select"),
     "Posted Text": NotionPropertySpec(type="rich_text"),
+    "Description Snippet": NotionPropertySpec(type="rich_text"),
+    "Employment Type": NotionPropertySpec(type="rich_text", optional=True),
+    "Seniority": NotionPropertySpec(type="rich_text", optional=True),
+    "Posted At": NotionPropertySpec(type="date", optional=True),
     "Job URL": NotionPropertySpec(type="url"),
     "Shortlist Reason": NotionPropertySpec(type="rich_text"),
     "Priority": NotionPropertySpec(type="select", manual=True),
@@ -47,9 +52,15 @@ def required_database_properties(*, include_optional: bool = False) -> dict[str,
     }
 
 
-def missing_required_database_properties(existing_properties: dict[str, str]) -> list[str]:
+def missing_required_database_properties(
+    existing_properties: dict[str, str],
+    *,
+    include_optional: bool = False,
+) -> list[str]:
     missing: list[str] = []
-    for property_name, property_type in required_database_properties().items():
+    for property_name, property_type in required_database_properties(
+        include_optional=include_optional,
+    ).items():
         if existing_properties.get(property_name) != property_type:
             missing.append(property_name)
     return missing

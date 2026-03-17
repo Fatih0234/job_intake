@@ -13,7 +13,7 @@ from job_intake.models import (
 )
 from job_intake.models.storage import ClassifiedJobRecord
 from job_intake.notion.client import NotionPageRecord
-from job_intake.notion.mapper import build_notion_job_properties
+from job_intake.notion.mapper import build_notion_job_page_blocks, build_notion_job_properties
 from job_intake.notion.sync import NotionSyncService
 from job_intake.orchestration.notion_sync_runtime import (
     NotionShortlistSyncRunner,
@@ -92,9 +92,14 @@ class FakeRuntimeSyncClient:
         *,
         database_id: str,
         properties: dict[str, object | None],
+        content_blocks: tuple[object, ...] | list[object],
     ) -> NotionPageRecord:
         self.creates += 1
-        page = NotionPageRecord(id="page-1", properties=properties.copy())
+        page = NotionPageRecord(
+            id="page-1",
+            properties=properties.copy(),
+            managed_blocks=tuple(content_blocks),
+        )
         self.pages[str(properties["Canonical Job Key"])] = page
         return page
 
@@ -103,9 +108,14 @@ class FakeRuntimeSyncClient:
         *,
         page_id: str,
         properties: dict[str, object | None],
+        content_blocks: tuple[object, ...] | list[object],
     ) -> NotionPageRecord:
         self.updates += 1
-        page = NotionPageRecord(id=page_id, properties=properties.copy())
+        page = NotionPageRecord(
+            id=page_id,
+            properties=properties.copy(),
+            managed_blocks=tuple(content_blocks),
+        )
         self.pages[str(properties["Canonical Job Key"])] = page
         return page
 
@@ -160,7 +170,10 @@ def test_notion_sync_runtime_runner_creates_pages_and_persists_sync_state() -> N
 
 def test_notion_sync_runtime_runner_skips_when_payload_checksum_matches() -> None:
     record = build_record()
-    checksum = _checksum_payload(build_notion_job_properties(record.job, record.classification))
+    checksum = _checksum_payload(
+        build_notion_job_properties(record.job, record.classification),
+        build_notion_job_page_blocks(record.job, record.classification),
+    )
     record.notion_sync_state = NotionSyncState(
         job_id=UUID("00000000-0000-4000-8000-000000000010"),
         notion_page_id="page-1",

@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from pprint import pprint
 
 from job_intake.logging import configure_logging
+from job_intake.notion.bootstrap import ensure_shortlist_workspace
 from job_intake.notion.client import NotionFallbackClient
 from job_intake.notion.sync import NotionSyncService
 from job_intake.orchestration.notion_sync_runtime import NotionShortlistSyncRunner
@@ -42,11 +43,13 @@ def main() -> int:
         raise RuntimeError(
             "NOTION_API_TOKEN is required for runtime Notion sync.",
         )
+    workspace_client = fallback_client.workspace_client()
+    ensure_shortlist_workspace(workspace_client, settings)
 
     with db_connection() as connection:
         repository = JobIntakeRepository(connection)
         sync_service = NotionSyncService(
-            fallback_client.workspace_client(),
+            workspace_client,
             database_id=database_id,
         )
         runner = NotionShortlistSyncRunner(repository, sync_service=sync_service)

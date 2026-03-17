@@ -13,7 +13,7 @@ from datetime import datetime
 
 from job_intake.models import CanonicalJob, JobClassification, StudentFit
 from job_intake.notion.client import NotionSyncClient
-from job_intake.notion.mapper import build_notion_job_properties
+from job_intake.notion.mapper import build_notion_job_page_blocks, build_notion_job_properties
 
 
 @dataclass(slots=True)
@@ -73,6 +73,10 @@ class NotionSyncService:
             candidate.job,
             candidate.classification,
         )
+        desired_blocks = build_notion_job_page_blocks(
+            candidate.job,
+            candidate.classification,
+        )
         existing_page = self.client.find_page_by_canonical_job_key(
             database_id=self.database_id,
             canonical_job_key=candidate.job.canonical_job_key,
@@ -81,15 +85,20 @@ class NotionSyncService:
             created_page = self.client.create_database_page(
                 database_id=self.database_id,
                 properties=desired_properties,
+                content_blocks=desired_blocks,
             )
             return NotionSyncPageResult(action="created", page_id=created_page.id)
 
-        if self._managed_properties_match(existing_page.properties, desired_properties):
+        if self._managed_properties_match(
+            existing_page.properties,
+            desired_properties,
+        ) and self._managed_blocks_match(existing_page.managed_blocks, desired_blocks):
             return NotionSyncPageResult(action="skipped", page_id=existing_page.id)
 
         updated_page = self.client.update_database_page(
             page_id=existing_page.id,
             properties=desired_properties,
+            content_blocks=desired_blocks,
         )
         return NotionSyncPageResult(action="updated", page_id=updated_page.id)
 
@@ -115,3 +124,10 @@ class NotionSyncService:
             if existing_value != desired_value:
                 return False
         return True
+
+    def _managed_blocks_match(
+        self,
+        existing_blocks: tuple[object, ...],
+        desired_blocks: list[object],
+    ) -> bool:
+        return list(existing_blocks) == desired_blocks

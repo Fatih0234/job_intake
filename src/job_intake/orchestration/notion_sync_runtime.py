@@ -12,7 +12,7 @@ from uuid import UUID
 from job_intake.logging import get_logger
 from job_intake.models import PipelineRun
 from job_intake.models.storage import ClassifiedJobRecord
-from job_intake.notion.mapper import build_notion_job_properties
+from job_intake.notion.mapper import build_notion_job_page_blocks, build_notion_job_properties
 from job_intake.notion.sync import NotionSyncCandidate, NotionSyncService
 from job_intake.settings import Settings, get_settings
 
@@ -50,13 +50,26 @@ class NotionSyncRuntimeSummary:
     errors: list[str] = field(default_factory=list)
 
 
-def _checksum_payload(properties: dict[str, object | None]) -> str:
+def _checksum_payload(
+    properties: dict[str, object | None],
+    content_blocks: list[object],
+) -> str:
     normalized = {
         key: value.isoformat() if isinstance(value, datetime) else value
         for key, value in properties.items()
         if key != "Synced At"
     }
-    serialized = json.dumps(normalized, sort_keys=True, ensure_ascii=True)
+    serialized = json.dumps(
+        {
+            "properties": normalized,
+            "content_blocks": [
+                {"type": getattr(block, "type"), "text": getattr(block, "text")}
+                for block in content_blocks
+            ],
+        },
+        sort_keys=True,
+        ensure_ascii=True,
+    )
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
@@ -96,7 +109,8 @@ class NotionShortlistSyncRunner:
                     classification=record.classification,
                 )
                 desired_properties = build_notion_job_properties(record.job, record.classification)
-                payload_checksum = _checksum_payload(desired_properties)
+                desired_blocks = build_notion_job_page_blocks(record.job, record.classification)
+                payload_checksum = _checksum_payload(desired_properties, desired_blocks)
                 existing_state = record.notion_sync_state
                 if (
                     existing_state is not None

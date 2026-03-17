@@ -4,12 +4,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from collections.abc import Sequence
 from typing import Any, Protocol, cast
 
 from notion_client import Client
 
+from job_intake.notion.mapper import NotionPageBlock, REVIEWER_NOTES_HEADING
 from job_intake.notion.schema import DATABASE_PROPERTY_SPECS
 from job_intake.settings import Settings, get_settings
+
+RICH_TEXT_CHUNK_SIZE = 1800
+SUPPORTED_BLOCK_TYPES = {
+    "paragraph",
+    "bulleted_list_item",
+    "numbered_list_item",
+    "heading_1",
+    "heading_2",
+    "heading_3",
+    "quote",
+    "toggle",
+    "to_do",
+}
 
 
 @dataclass(slots=True)
@@ -29,6 +44,7 @@ class NotionDatabaseRef:
 class NotionPageRecord:
     id: str
     properties: dict[str, object | None]
+    managed_blocks: tuple[NotionPageBlock, ...] = ()
 
 
 class NotionBootstrapClient(Protocol):
@@ -57,6 +73,12 @@ class NotionBootstrapClient(Protocol):
         title: str,
         properties: dict[str, str],
     ) -> NotionDatabaseRef: ...
+    def update_database(
+        self,
+        *,
+        database_id: str,
+        properties: dict[str, str],
+    ) -> NotionDatabaseRef: ...
     def get_database(self, database_id: str) -> NotionDatabaseRef: ...
 
 
@@ -72,12 +94,14 @@ class NotionSyncClient(Protocol):
         *,
         database_id: str,
         properties: dict[str, object | None],
+        content_blocks: Sequence[NotionPageBlock],
     ) -> NotionPageRecord: ...
     def update_database_page(
         self,
         *,
         page_id: str,
         properties: dict[str, object | None],
+        content_blocks: Sequence[NotionPageBlock],
     ) -> NotionPageRecord: ...
 
 
@@ -218,6 +242,34 @@ class DirectNotionWorkspaceClient:
             properties=self._extract_database_properties(response),
         )
 
+    def update_database(
+        self,
+        *,
+        database_id: str,
+        properties: dict[str, str],
+    ) -> NotionDatabaseRef:
+        existing_database = self.get_database(database_id)
+        properties_to_add = {
+            property_name: {property_type: {}}
+            for property_name, property_type in properties.items()
+            if existing_database.properties.get(property_name) != property_type
+        }
+        if not properties_to_add:
+            return existing_database
+
+        response = cast(
+            dict[str, Any],
+            self.client.databases.update(
+                database_id=database_id,
+                properties=properties_to_add,
+            ),
+        )
+        return NotionDatabaseRef(
+            id=response["id"],
+            title=self._extract_title(response),
+            properties=self._extract_database_properties(response),
+        )
+
     def find_page_by_canonical_job_key(
         self,
         *,
@@ -238,28 +290,37 @@ class DirectNotionWorkspaceClient:
         results = response.get("results", [])
         if not results:
             return None
-        return self._to_page_record(cast(dict[str, Any], results[0]))
+        page = cast(dict[str, Any], results[0])
+        return self._to_page_record(
+            page,
+            managed_blocks=self._extract_managed_blocks(page["id"]),
+        )
 
     def create_database_page(
         self,
         *,
         database_id: str,
         properties: dict[str, object | None],
+        content_blocks: Sequence[NotionPageBlock],
     ) -> NotionPageRecord:
+        page_create_payload: dict[str, Any] = {
+            "parent": {"database_id": database_id},
+            "properties": self._build_property_payload(properties),
+        }
+        if content_blocks:
+            page_create_payload["children"] = self._build_block_payload(content_blocks)
         response = cast(
             dict[str, Any],
-            self.client.pages.create(
-                parent={"database_id": database_id},
-                properties=self._build_property_payload(properties),
-            ),
+            self.client.pages.create(**page_create_payload),
         )
-        return self._to_page_record(response)
+        return self._to_page_record(response, managed_blocks=tuple(content_blocks))
 
     def update_database_page(
         self,
         *,
         page_id: str,
         properties: dict[str, object | None],
+        content_blocks: Sequence[NotionPageBlock],
     ) -> NotionPageRecord:
         response = cast(
             dict[str, Any],
@@ -268,7 +329,11 @@ class DirectNotionWorkspaceClient:
                 properties=self._build_property_payload(properties),
             ),
         )
-        return self._to_page_record(response)
+        self._replace_page_content(
+            page_id=page_id,
+            managed_blocks=tuple(content_blocks),
+        )
+        return self._to_page_record(response, managed_blocks=tuple(content_blocks))
 
     def _extract_title(self, response: dict[str, Any]) -> str:
         title_fragments = response.get("title", [])
@@ -280,13 +345,19 @@ class DirectNotionWorkspaceClient:
             for property_name, property_payload in response.get("properties", {}).items()
         }
 
-    def _to_page_record(self, response: dict[str, Any]) -> NotionPageRecord:
+    def _to_page_record(
+        self,
+        response: dict[str, Any],
+        *,
+        managed_blocks: tuple[NotionPageBlock, ...] = (),
+    ) -> NotionPageRecord:
         return NotionPageRecord(
             id=response["id"],
             properties={
                 property_name: self._from_notion_property_value(property_payload)
                 for property_name, property_payload in response.get("properties", {}).items()
             },
+            managed_blocks=managed_blocks,
         )
 
     def _resolve_data_source_id(self, database_id: str) -> str:
@@ -348,6 +419,160 @@ class DirectNotionWorkspaceClient:
                 return {"date": {"start": value.isoformat()}}
             return {"date": {"start": str(value)}}
         raise ValueError(f"Unsupported Notion property type {property_type!r}.")
+
+    def _build_block_payload(
+        self,
+        blocks: Sequence[NotionPageBlock],
+    ) -> list[dict[str, Any]]:
+        payload: list[dict[str, Any]] = []
+        for block in blocks:
+            payload.append(
+                {
+                    "object": "block",
+                    "type": block.type,
+                    block.type: {
+                        "rich_text": self._build_rich_text(block.text),
+                    },
+                }
+            )
+        return payload
+
+    def _build_rich_text(self, text: str) -> list[dict[str, Any]]:
+        if not text:
+            return []
+        return [
+            {
+                "type": "text",
+                "text": {"content": text[start : start + RICH_TEXT_CHUNK_SIZE]},
+            }
+            for start in range(0, len(text), RICH_TEXT_CHUNK_SIZE)
+        ]
+
+    def _extract_managed_blocks(self, page_id: str) -> tuple[NotionPageBlock, ...]:
+        blocks = self._list_block_children(page_id)
+        reviewer_notes_index = self._find_reviewer_notes_index(blocks)
+        managed_source = (
+            blocks[: reviewer_notes_index + 1]
+            if reviewer_notes_index >= 0
+            else blocks
+        )
+        managed_blocks: list[NotionPageBlock] = []
+        for block in managed_source:
+            page_block = self._to_page_block(block)
+            if page_block is not None:
+                managed_blocks.append(page_block)
+        return tuple(managed_blocks)
+
+    def _to_page_block(self, block: dict[str, Any]) -> NotionPageBlock | None:
+        block_type = block["type"]
+        if block_type not in {"heading_2", "paragraph", "bulleted_list_item"}:
+            return None
+        return NotionPageBlock(
+            type=block_type,
+            text=self._extract_block_text(block),
+        )
+
+    def _replace_page_content(
+        self,
+        *,
+        page_id: str,
+        managed_blocks: tuple[NotionPageBlock, ...],
+    ) -> None:
+        existing_blocks = self._list_block_children(page_id)
+        reviewer_notes_index = self._find_reviewer_notes_index(existing_blocks)
+        if reviewer_notes_index >= 0:
+            manual_blocks = existing_blocks[reviewer_notes_index + 1 :]
+        elif existing_blocks:
+            manual_blocks = existing_blocks
+        else:
+            manual_blocks = []
+
+        new_blocks = self._build_block_payload(managed_blocks)
+        for block in manual_blocks:
+            cloned = self._clone_block_for_append(block)
+            if cloned is not None:
+                new_blocks.append(cloned)
+
+        self._delete_blocks(existing_blocks)
+        if new_blocks:
+            self._append_blocks(page_id, new_blocks)
+
+    def _list_block_children(self, block_id: str) -> list[dict[str, Any]]:
+        blocks: list[dict[str, Any]] = []
+        next_cursor: str | None = None
+
+        while True:
+            response = cast(
+                dict[str, Any],
+                self.client.blocks.children.list(
+                    block_id=block_id,
+                    start_cursor=next_cursor,
+                ),
+            )
+            blocks.extend(cast(list[dict[str, Any]], response.get("results", [])))
+            if not response.get("has_more"):
+                break
+            next_cursor = cast(str, response.get("next_cursor"))
+
+        return blocks
+
+    def _find_reviewer_notes_index(self, blocks: Sequence[dict[str, Any]]) -> int:
+        for index, block in enumerate(blocks):
+            if block["type"] != "heading_2":
+                continue
+            if self._extract_block_text(block) == REVIEWER_NOTES_HEADING:
+                return index
+        return -1
+
+    def _extract_block_text(self, block: dict[str, Any]) -> str:
+        block_type = block["type"]
+        payload = block.get(block_type, {})
+        return "".join(
+            fragment.get("plain_text", "")
+            for fragment in payload.get("rich_text", [])
+        )
+
+    def _clone_block_for_append(self, block: dict[str, Any]) -> dict[str, Any] | None:
+        block_type = block["type"]
+        if block_type not in SUPPORTED_BLOCK_TYPES:
+            text = self._extract_block_text(block)
+            if not text:
+                return None
+            return {
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": self._build_rich_text(text),
+                },
+            }
+
+        payload = block.get(block_type, {})
+        cloned_payload: dict[str, Any] = {
+            "rich_text": self._build_rich_text(self._extract_block_text(block)),
+        }
+        if block_type == "to_do":
+            cloned_payload["checked"] = bool(payload.get("checked", False))
+
+        return {
+            "object": "block",
+            "type": block_type,
+            block_type: cloned_payload,
+        }
+
+    def _delete_blocks(self, blocks: Sequence[dict[str, Any]]) -> None:
+        for block in blocks:
+            cast(Any, self.client.blocks).delete(block_id=block["id"])
+
+    def _append_blocks(
+        self,
+        page_id: str,
+        blocks: Sequence[dict[str, Any]],
+    ) -> None:
+        for start in range(0, len(blocks), 50):
+            cast(Any, self.client.blocks.children).append(
+                block_id=page_id,
+                children=list(blocks[start : start + 50]),
+            )
 
     def _from_notion_property_value(self, property_payload: dict[str, Any]) -> object | None:
         property_type = property_payload["type"]

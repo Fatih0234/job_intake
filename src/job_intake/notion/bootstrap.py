@@ -30,10 +30,15 @@ def ensure_shortlist_workspace(
 
     root_page, created_root_page = _resolve_root_page(client, active_settings)
     database, created_database = _resolve_database(client, active_settings, root_page.id)
-    missing_properties = missing_required_database_properties(database.properties)
+    missing_properties = missing_required_database_properties(
+        database.properties,
+        include_optional=True,
+    )
     if missing_properties:
-        missing = ", ".join(missing_properties)
-        raise ValueError(f"Notion database is missing required properties: {missing}")
+        database = client.update_database(
+            database_id=database.id,
+            properties=required_database_properties(include_optional=True),
+        )
 
     return NotionWorkspaceState(
         root_page=root_page,
@@ -92,7 +97,7 @@ def _resolve_database(
     return client.create_database(
         parent_page_id=root_page_id,
         title=settings.notion.default_database_name,
-        properties=required_database_properties(),
+        properties=required_database_properties(include_optional=True),
     ), True
 
 

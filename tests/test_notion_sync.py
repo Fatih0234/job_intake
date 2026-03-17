@@ -4,7 +4,12 @@ from datetime import UTC, datetime
 
 from job_intake.models import CanonicalJob, JobClassification, RoleFamily, StudentFit
 from job_intake.notion.client import NotionPageRecord
-from job_intake.notion.mapper import build_notion_job_properties
+from job_intake.notion.mapper import (
+    REVIEWER_NOTES_HEADING,
+    build_description_snippet,
+    build_notion_job_page_blocks,
+    build_notion_job_properties,
+)
 from job_intake.notion.sync import NotionSyncCandidate, NotionSyncService
 
 
@@ -12,7 +17,8 @@ class FakeSyncClient:
     def __init__(self) -> None:
         self.pages: dict[str, NotionPageRecord] = {}
         self.created_pages: list[dict[str, object | None]] = []
-        self.updated_pages: list[tuple[str, dict[str, object | None]]] = []
+        self.created_blocks: list[tuple[object, ...]] = []
+        self.updated_pages: list[tuple[str, dict[str, object | None], tuple[object, ...]]] = []
 
     def find_page_by_canonical_job_key(
         self,
@@ -27,13 +33,16 @@ class FakeSyncClient:
         *,
         database_id: str,
         properties: dict[str, object | None],
+        content_blocks: tuple[object, ...] | list[object],
     ) -> NotionPageRecord:
         page = NotionPageRecord(
             id=f"page-{len(self.pages) + 1}",
             properties=properties.copy(),
+            managed_blocks=tuple(content_blocks),
         )
         self.pages[str(properties["Canonical Job Key"])] = page
         self.created_pages.append(properties.copy())
+        self.created_blocks.append(tuple(content_blocks))
         return page
 
     def update_database_page(
@@ -41,11 +50,16 @@ class FakeSyncClient:
         *,
         page_id: str,
         properties: dict[str, object | None],
+        content_blocks: tuple[object, ...] | list[object],
     ) -> NotionPageRecord:
         canonical_job_key = str(properties["Canonical Job Key"])
-        page = NotionPageRecord(id=page_id, properties=properties.copy())
+        page = NotionPageRecord(
+            id=page_id,
+            properties=properties.copy(),
+            managed_blocks=tuple(content_blocks),
+        )
         self.pages[canonical_job_key] = page
-        self.updated_pages.append((page_id, properties.copy()))
+        self.updated_pages.append((page_id, properties.copy(), tuple(content_blocks)))
         return page
 
 
@@ -104,7 +118,28 @@ def test_build_notion_job_properties_uses_sanitized_job_url() -> None:
 
     properties = build_notion_job_properties(candidate.job, candidate.classification)
 
-    assert properties["Job URL"] == "https://linkedin.com/jobs/view/4185654374"
+    assert properties["Job URL"] == "https://www.linkedin.com/jobs/view/4185654374/"
+
+
+def test_build_description_snippet_normalizes_whitespace_and_caps_length() -> None:
+    snippet = build_description_snippet("Build   ETL\npipelines " * 50)
+
+    assert snippet is not None
+    assert "\n" not in snippet
+    assert len(snippet) <= 453
+
+
+def test_build_notion_job_page_blocks_includes_manual_notes_anchor() -> None:
+    candidate = build_candidate()
+
+    blocks = build_notion_job_page_blocks(candidate.job, candidate.classification)
+
+    assert blocks[-1].type == "heading_2"
+    assert blocks[-1].text == REVIEWER_NOTES_HEADING
+    assert any(
+        block.text == "Source Job URL: https://www.linkedin.com/jobs/view/4185654374/"
+        for block in blocks
+    )
 
 
 def test_sync_shortlisted_jobs_creates_pages_for_new_target_candidates() -> None:
@@ -136,6 +171,33 @@ def test_sync_shortlisted_jobs_updates_existing_pages_when_managed_fields_change
     service = NotionSyncService(client, database_id="database-id")
     original = build_candidate()
     changed = build_candidate(posted_text="today")
+
+    service.sync_shortlisted_jobs([original])
+    result = service.sync_shortlisted_jobs([changed])
+
+    assert result.created == 0
+    assert result.updated == 1
+    assert result.skipped == 0
+
+
+def test_sync_shortlisted_jobs_updates_existing_pages_when_only_page_body_changes() -> None:
+    client = FakeSyncClient()
+    service = NotionSyncService(client, database_id="database-id")
+    long_description = ("Build ETL pipelines with SQL and Airflow. " * 20).strip()
+    original = build_candidate()
+    original.job = CanonicalJob(
+        **{
+            **original.job.model_dump(),
+            "description_text": long_description,
+        }
+    )
+    changed = build_candidate()
+    changed.job = CanonicalJob(
+        **{
+            **changed.job.model_dump(),
+            "description_text": long_description + "\n\nThis sentence only appears in the page body.",
+        }
+    )
 
     service.sync_shortlisted_jobs([original])
     result = service.sync_shortlisted_jobs([changed])

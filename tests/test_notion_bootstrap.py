@@ -12,6 +12,7 @@ class FakeNotionWorkspaceClient:
         self.database: NotionDatabaseRef | None = None
         self.created_pages: list[tuple[str, str | None]] = []
         self.created_databases: list[tuple[str, str, dict[str, str]]] = []
+        self.updated_databases: list[tuple[str, dict[str, str]]] = []
 
     def find_page_by_title(
         self,
@@ -53,6 +54,22 @@ class FakeNotionWorkspaceClient:
         )
         return self.database
 
+    def update_database(
+        self,
+        *,
+        database_id: str,
+        properties: dict[str, str],
+    ) -> NotionDatabaseRef:
+        self.updated_databases.append((database_id, properties))
+        assert self.database is not None
+        merged_properties = self.database.properties | properties
+        self.database = NotionDatabaseRef(
+            id=self.database.id,
+            title=self.database.title,
+            properties=merged_properties,
+        )
+        return self.database
+
     def get_database(self, database_id: str) -> NotionDatabaseRef:
         assert self.database is not None
         return self.database
@@ -67,7 +84,7 @@ def test_ensure_shortlist_workspace_creates_missing_root_page_and_database() -> 
     assert workspace.created_database is True
     assert client.created_pages == [("Student Job Intake", None)]
     assert client.created_databases[0][1] == "Student Jobs - Shortlist"
-    assert client.created_databases[0][2] == required_database_properties()
+    assert client.created_databases[0][2] == required_database_properties(include_optional=True)
 
 
 def test_ensure_shortlist_workspace_reuses_existing_workspace() -> None:
@@ -87,7 +104,7 @@ def test_ensure_shortlist_workspace_reuses_existing_workspace() -> None:
     assert client.created_databases == []
 
 
-def test_ensure_shortlist_workspace_rejects_database_with_missing_required_property() -> None:
+def test_ensure_shortlist_workspace_updates_database_with_missing_expected_properties() -> None:
     client = FakeNotionWorkspaceClient()
     client.page = NotionPageRef(id="root-page-id", title="Student Job Intake")
     client.database = NotionDatabaseRef(
@@ -96,12 +113,12 @@ def test_ensure_shortlist_workspace_rejects_database_with_missing_required_prope
         properties={"Job Title": "title"},
     )
 
-    try:
-        ensure_shortlist_workspace(client, Settings.from_overrides())
-    except ValueError as exc:
-        assert "Company" in str(exc)
-    else:
-        raise AssertionError("Expected ensure_shortlist_workspace to reject missing properties.")
+    workspace = ensure_shortlist_workspace(client, Settings.from_overrides())
+
+    assert workspace.database.properties["Company"] == "rich_text"
+    assert client.updated_databases == [
+        ("database-id", required_database_properties(include_optional=True))
+    ]
 
 
 def test_manual_fields_to_preserve_match_schema_contract() -> None:
