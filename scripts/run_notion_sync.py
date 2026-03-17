@@ -35,9 +35,7 @@ def main() -> int:
     args = parse_args()
     configure_logging()
     settings = get_settings()
-
-    if not settings.notion.database_id:
-        raise RuntimeError("NOTION_DATABASE_ID is required for Notion sync.")
+    database_id = settings.notion_database_id_required
 
     fallback_client = NotionFallbackClient(settings)
     if not fallback_client.is_configured:
@@ -49,7 +47,7 @@ def main() -> int:
         repository = JobIntakeRepository(connection)
         sync_service = NotionSyncService(
             fallback_client.workspace_client(),
-            database_id=settings.notion.database_id,
+            database_id=database_id,
         )
         runner = NotionShortlistSyncRunner(repository, sync_service=sync_service)
 

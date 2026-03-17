@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,25 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REQUIRED_SUPABASE_PROJECT_REF = "aashdnhoiqqdhpdedaab"
 REQUIRED_SUPABASE_URL = "https://aashdnhoiqqdhpdedaab.supabase.co"
+NOTION_ID_HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
+ASCII_WHITESPACE_RE = re.compile(r"[\t\n\r\f\v ]")
+
+
+def validate_notion_id(value: str | None, *, env_var: str) -> str | None:
+    if value is None or value == "":
+        return value
+    if value.strip() != value:
+        raise ValueError(f"{env_var} must not contain leading or trailing whitespace.")
+    if ASCII_WHITESPACE_RE.search(value):
+        raise ValueError(f"{env_var} must not contain embedded ASCII whitespace.")
+
+    compact_value = value.replace("-", "")
+    if not NOTION_ID_HEX_RE.fullmatch(compact_value):
+        raise ValueError(
+            f"{env_var} must be a raw Notion ID with 32 hexadecimal characters "
+            "(dashes optional), not a URL or another value.",
+        )
+    return value
 
 
 class AppConfig(BaseModel):
@@ -87,6 +107,18 @@ class Settings(BaseSettings):
             )
         if self.supabase_url != REQUIRED_SUPABASE_URL:
             raise ValueError(f"SUPABASE_URL must remain {REQUIRED_SUPABASE_URL!r} for this repo.")
+        self.notion_parent_page_id = validate_notion_id(
+            self.notion_parent_page_id,
+            env_var="NOTION_PARENT_PAGE_ID",
+        )
+        self.notion_root_page_id = validate_notion_id(
+            self.notion_root_page_id,
+            env_var="NOTION_ROOT_PAGE_ID",
+        )
+        self.notion_database_id = validate_notion_id(
+            self.notion_database_id,
+            env_var="NOTION_DATABASE_ID",
+        )
         self.log_level = self.log_level.upper()
         return self
 
@@ -136,6 +168,12 @@ class Settings(BaseSettings):
                 "Fill it in locally before using storage helpers.",
             )
         return self.supabase_db_url
+
+    @property
+    def notion_database_id_required(self) -> str:
+        if not self.notion_database_id:
+            raise RuntimeError("NOTION_DATABASE_ID is required for Notion sync.")
+        return self.notion_database_id
 
     def missing_local_values(self) -> dict[str, list[str]]:
         required_for_db = []

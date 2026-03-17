@@ -30,6 +30,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Report checked-out revision
+        run: |
+          echo "GITHUB_SHA=${GITHUB_SHA}"
+          if git merge-base --is-ancestor c3ea8f426ce1eeb4ef736dc61917cf52ba8bccf2 "${GITHUB_SHA}"; then
+            echo "Checked-out revision includes the LinkedIn URL sanitization fix."
+          else
+            echo "Checked-out revision does not include c3ea8f426ce1eeb4ef736dc61917cf52ba8bccf2."
+            exit 1
+          fi
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -54,6 +64,46 @@ jobs:
             echo "GitHub secret NOTION_DATABASE_ID is required."
             exit 1
           fi
+
+      - name: Validate Notion database ID shape
+        env:
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          value = os.environ["NOTION_DATABASE_ID"]
+          has_ascii_whitespace = any(char in "\t\n\r\f\v " for char in value)
+          stripped_matches = value.strip() == value
+          compact = value.replace("-", "")
+          looks_like_id = bool(re.fullmatch(r"[0-9a-fA-F]{32}", compact))
+
+          print(
+              "NOTION_DATABASE_ID diagnostics:",
+              {
+                  "length": len(value),
+                  "stripped_matches": stripped_matches,
+                  "has_ascii_whitespace": has_ascii_whitespace,
+                  "compact_length": len(compact),
+                  "looks_like_id": looks_like_id,
+              },
+          )
+
+          if not stripped_matches:
+              print("NOTION_DATABASE_ID must not contain leading or trailing whitespace.")
+              sys.exit(1)
+          if has_ascii_whitespace:
+              print("NOTION_DATABASE_ID must not contain embedded ASCII whitespace.")
+              sys.exit(1)
+          if not looks_like_id:
+              print(
+                  "NOTION_DATABASE_ID must be a raw Notion database ID with 32 hexadecimal characters "
+                  "(dashes optional), not a URL or another value."
+              )
+              sys.exit(1)
+          PY
 
       - name: Install dependencies
         run: uv sync --group dev --frozen
