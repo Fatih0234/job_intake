@@ -8,18 +8,15 @@ from job_intake.smoke import run_smoke_check
 def test_all_yaml_configs_parse() -> None:
     configs = load_all_configs(Settings())
 
-    assert set(configs.keys()) == {
-        "linkedin_searches.yaml",
-        "student_fit_keywords.yaml",
-        "role_family_keywords.yaml",
-    }
-    assert "search_definitions" in configs["linkedin_searches.yaml"]
+    assert len(configs.linkedin_searches.search_definitions) == 5
+    assert "Werkstudent" in configs.student_fit_keywords.positive_terms
+    assert configs.role_family_keywords.role_families
 
 
 def test_smoke_check_runs_without_db_credentials() -> None:
     result = run_smoke_check(Settings())
 
     assert result["settings_loaded"] is True
+    assert result["search_definition_count"] == 5
     assert result["sample_external_key"] == "linkedin:1234567890"
     assert result["sample_fallback_key"].startswith("linkedin:url:")
-

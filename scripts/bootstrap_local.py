@@ -17,7 +17,7 @@ def main() -> int:
     print("Student Job Intake local bootstrap")
     print("=" * 36)
     print(f"Environment: {settings.app.env}")
-    print(f"Configs loaded: {', '.join(sorted(configs.keys()))}")
+    print(f"Configs loaded: {', '.join(sorted(configs.as_dict().keys()))}")
     print()
 
     print("Missing local values")
@@ -35,4 +35,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

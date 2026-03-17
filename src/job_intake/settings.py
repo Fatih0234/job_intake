@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import cached_property, lru_cache
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -160,6 +161,11 @@ class Settings(BaseSettings):
             "required_for_db": required_for_db,
             "optional_or_later": optional_or_later,
         }
+
+    @classmethod
+    def from_overrides(cls, **values: Any) -> Settings:
+        """Build validated settings from explicit overrides without reading env files."""
+        return cls(_env_file=None, **values)  # type: ignore[call-arg]
 
 
 @lru_cache(maxsize=1)

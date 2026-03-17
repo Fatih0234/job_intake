@@ -3,20 +3,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-RoleFamily = Literal[
-    "data_engineering",
-    "analytics_engineering",
-    "analytics_bi",
-    "ml_ai_engineering",
-    "out_of_scope",
-]
-
-StudentFit = Literal["target_student_job", "possible_student_job", "not_student_job"]
+from job_intake.models.common import Platform, RoleFamily, StudentFit
 
 
 def utc_now() -> datetime:
@@ -26,7 +18,7 @@ def utc_now() -> datetime:
 class SearchDefinition(BaseModel):
     id: UUID | None = None
     name: str
-    platform: str = "linkedin"
+    platform: Platform = Platform.LINKEDIN
     city: str
     role_family: RoleFamily
     keywords: list[str] = Field(default_factory=list)
@@ -34,13 +26,20 @@ class SearchDefinition(BaseModel):
     query_text: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def normalize_fields(self) -> SearchDefinition:
+        self.name = self.name.strip()
+        self.city = self.city.strip()
+        self.keywords = [keyword.strip() for keyword in self.keywords if keyword.strip()]
+        return self
+
 
 class JobDiscovery(BaseModel):
     id: UUID | None = None
     search_definition_id: UUID | None = None
-    platform: str = "linkedin"
+    platform: Platform = Platform.LINKEDIN
     external_job_id: str | None = None
-    job_url: str
+    discovery_url: str
     rank_position: int | None = None
     discovered_at: datetime = Field(default_factory=utc_now)
     raw_payload: dict[str, Any] = Field(default_factory=dict)
@@ -49,7 +48,7 @@ class JobDiscovery(BaseModel):
 class CanonicalJob(BaseModel):
     id: UUID | None = None
     canonical_job_key: str
-    platform: str = "linkedin"
+    platform: Platform = Platform.LINKEDIN
     external_job_id: str | None = None
     source_job_url: str
     normalized_job_url: str
@@ -72,7 +71,6 @@ class CanonicalJob(BaseModel):
 class JobClassification(BaseModel):
     id: UUID | None = None
     job_id: UUID | None = None
-    canonical_job_key: str | None = None
     student_fit: StudentFit
     role_family: RoleFamily
     shortlist_decision: bool

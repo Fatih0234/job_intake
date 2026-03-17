@@ -27,7 +27,7 @@ def clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def isolated_settings(**kwargs: object) -> Settings:
-    return Settings(_env_file=None, **kwargs)
+    return Settings.from_overrides(**kwargs)
 
 
 def test_settings_defaults_load_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:

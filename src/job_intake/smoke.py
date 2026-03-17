@@ -17,9 +17,9 @@ def run_smoke_check(settings: Settings | None = None) -> dict[str, Any]:
 
     return {
         "settings_loaded": True,
-        "configs_loaded": sorted(configs.keys()),
+        "configs_loaded": sorted(configs.as_dict().keys()),
+        "search_definition_count": len(configs.linkedin_searches.search_definitions),
         "sample_external_key": build_canonical_job_key(external_job_id="1234567890"),
         "sample_fallback_key": build_canonical_job_key(job_url=fallback_url),
         "normalized_sample_url": normalize_linkedin_job_url(fallback_url),
     }
-
